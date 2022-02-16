@@ -1,22 +1,22 @@
 {
-  "name": "generateCode",
+  "name": "generateBlock",
   "version": "0.0.1",
-  "description": "generateCode",
+  "description": "generateBlock",
   "keywords": [
-    "generateCode"
+    "generateBlock"
   ],
   "bin": {
-    "generateCode": "bin/index.js"
+    "generateBlock": "bin/index.js"
   },
   "scripts": {
     "start": "node bin/index.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yitjhy/generateCode.git"
+    "url": "https://github.com/yitjhy/generateBlock.git"
   },
   "bugs": {
-    "url": "https://github.com/yitjhy/generateCode/issues"
+    "url": "https://github.com/yitjhy/generateBlock/issues"
   },
   "author": "js",
   "dependencies": {
