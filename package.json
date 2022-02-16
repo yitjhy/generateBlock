@@ -1,9 +1,9 @@
 {
-  "name": "generateBlock",
+  "name": "generateblock",
   "version": "0.0.1",
-  "description": "generateBlock",
+  "description": "generateblock",
   "keywords": [
-    "generateBlock"
+    "generateblock"
   ],
   "bin": {
     "generateBlock": "bin/index.js"

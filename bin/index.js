@@ -12,7 +12,7 @@ const writeInFile = () => {
     shell.cd(dirPath);
     shell.exec(`git clone ${gitUrl}`, function(code, stdout, stderr) {
         if (code === 0) {
-            console.log('文件下载成功');
+            console.log('模块生成成功');
             shell.rm('-rf', `../${fileName}`);
             shell.cp('-R', [`${fileName}/bin/`],`../`);
             shell.cd(`../`);
