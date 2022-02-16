@@ -1,0 +1,25 @@
+{
+  "name": "generateCode",
+  "version": "0.0.1",
+  "description": "generateCode",
+  "keywords": [
+    "generateCode"
+  ],
+  "bin": {
+    "generateCode": "bin/index.js"
+  },
+  "scripts": {
+    "start": "node bin/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yitjhy/generateCode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yitjhy/generateCode/issues"
+  },
+  "author": "js",
+  "dependencies": {
+    "shelljs": "^0.8.5"
+  }
+}
