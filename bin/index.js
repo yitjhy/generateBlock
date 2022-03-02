@@ -54,7 +54,6 @@ const haveImport = (code, targetBlock) => {
                 flag = true
             }
         })
-    console.log(flag);
     return flag
 }
 
