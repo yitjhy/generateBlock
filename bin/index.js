@@ -7,20 +7,20 @@ const { writeFileSync } = require("fs");
 const copyFolder = 'bin';
 const argv = process.argv;
 let gitUrl = argv[2];
-const generateBlock = () => {
+const generateBlock = async () => {
     const dirPath = 'tmp';
-    shell.rm('-rf', dirPath);
-    shell.mkdir('-p', [dirPath]);
+    await shell.rm('-rf', dirPath);
+    await shell.mkdir('-p', [dirPath]);
     const fileName = gitUrl.split('/').reverse()[0].split('.')[0];
-    shell.cd(dirPath);
-    shell.exec(`git clone ${gitUrl}`, (code, stdout, stderr) => {
+    await shell.cd(dirPath);
+    shell.exec(`git clone ${gitUrl}`, async (code, stdout, stderr) => {
         if (code === 0) {
             console.log('模块生成成功');
-            shell.rm('-rf', `../${fileName}`);
-            shell.cp('-R', [`${fileName}/bin/`],`../`);
-            shell.cd(`../`);
-            shell.mv([copyFolder], fileName);
-            shell.rm('-rf', `${dirPath}`);
+            await shell.rm('-rf', `../${fileName}`);
+            await shell.cp('-R', [`${fileName}/bin/`],`../`);
+            await shell.cd(`../`);
+            await shell.mv([copyFolder], fileName);
+            await shell.rm('-rf', `${dirPath}`);
             writeInParseFile(fileName)
         } else {
             console.log('Exit code:', code);
@@ -49,11 +49,12 @@ const haveImport = (code, targetBlock) => {
     code
         .find(`import $_$1 from "$_$2"`)
         .each(item => {
-            if(item.match[2][0].value === targetBlock) {
+            console.log(item.match[2][0].value);
+            if(item.match[2][0].value === `./${targetBlock}`) {
                 flag = true
             }
         })
-
+    console.log(flag);
     return flag
 }
 
@@ -61,7 +62,7 @@ const writeInParseFile = fileName => {
     const targetContent = cat('./index.jsx').stdout;
     if (targetContent) {
         let newContent = '';
-        let ast = $(targetContent).replace(`<UiFlag />`, `<${ToUpperCase(fileName)} />`).root();
+        let ast = $(targetContent).replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
         if (haveImport(ast, fileName)) {
             newContent = ast.generate();
         } else {
