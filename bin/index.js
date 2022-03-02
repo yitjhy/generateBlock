@@ -44,13 +44,29 @@ const ToUpperCase = str => {
     return res
 }
 
+const haveImport = (code, targetBlock) => {
+    let flag = false
+    code
+        .find(`import $_$1 from "$_$2"`)
+        .each(item => {
+            if(item.match[2][0].value === targetBlock) {
+                flag = true
+            }
+        })
+
+    return flag
+}
+
 const writeInParseFile = fileName => {
     const targetContent = cat('./index.jsx').stdout;
     if (targetContent) {
-        const newContent = $(targetContent).replace(`<UiFlag />`, `<${ToUpperCase(fileName)} />`)
-            .root()
-            .before(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`)
-            .generate()
+        let newContent = '';
+        let ast = $(targetContent).replace(`<UiFlag />`, `<${ToUpperCase(fileName)} />`).root();
+        if (haveImport(ast, fileName)) {
+            newContent = ast.generate();
+        } else {
+            newContent = ast.before(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).generate();
+        }
         writeFileSync('./index.jsx', newContent, 'utf-8');
         console.log('模块插入成功');
     } else {
