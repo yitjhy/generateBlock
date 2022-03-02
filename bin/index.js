@@ -49,7 +49,6 @@ const haveImport = (code, targetBlock) => {
     code
         .find(`import $_$1 from "$_$2"`)
         .each(item => {
-            console.log(item.match[2][0].value);
             if(item.match[2][0].value === `./${targetBlock}`) {
                 flag = true
             }
