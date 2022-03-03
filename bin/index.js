@@ -3,6 +3,7 @@ const shell = require('shelljs');
 const { cat } = require("shelljs");
 const $ = require("gogocode");
 const { writeFileSync } = require("fs");
+const ora = require('ora');
 
 const copyFolder = 'bin';
 const argv = process.argv;
@@ -56,25 +57,54 @@ const haveImport = (code, targetBlock) => {
     return flag
 }
 
+const installDependencies = dependenciesList => {
+    const spinner = ora({text: `模块相关依赖正在下载中...\n`, color: 'red'});
+    spinner.start();
+    shell.exec(`npm install ${dependenciesList.join('  ')} --save`, async (code, stdout, stderr) => {
+        spinner.stop();
+        if (code === 0) {
+            console.log('模块相关依赖下载成功');
+        } else {
+            console.log('Exit code:', code);
+            console.log('Program output:', stdout);
+            console.log('Program stderr:', stderr);
+        }
+    });
+}
+
+const judgeIsDependencies = depStr => {
+    const reg = new RegExp(/^[a-zA-Z]*$/g);
+    if (reg.test(depStr.split('')[0])) return depStr
+}
+
 const writeInParseFile = fileName => {
-    const targetContent = cat('./index.jsx').stdout;
+    const targetContent = cat('./App.jsx').stdout;
     if (targetContent) {
         let newContent = '';
-        let ast = $(targetContent).replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
-        if (haveImport(ast, fileName)) {
-            newContent = ast.generate();
+        const dependencies = [];
+        let rootAst = $(targetContent).replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
+        if (haveImport(rootAst, fileName)) {
+            newContent = rootAst.generate();
         } else {
-            newContent = ast.before(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).generate();
+            const importAst = rootAst.find(`import $_$0 from '$_$1'`);
+            rootAst.find(`import $_$name from '$_$source'`).each((importNode, index) => {
+                if (importAst.length -1  === index) {
+                    newContent = importNode.after(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).root().generate();
+                }
+                const depend = judgeIsDependencies(importNode.match['source'][0].value)
+                dependencies.push(depend)
+            })
         }
-        writeFileSync('./index.jsx', newContent, 'utf-8');
+        writeFileSync('./index2.jsx', newContent, 'utf-8');
         console.log('模块插入成功');
+        installDependencies(dependencies)
     } else {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
     }
 }
 
 if (gitUrl) {
-    generateBlock();
+    generateBlock().then();
 } else {
     console.log('请输入url地址');
 }
