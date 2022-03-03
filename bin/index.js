@@ -121,7 +121,7 @@ const getInstallDependenciesList = fileName => {
 }
 
 const insertInFile = fileName => {
-    let rootAst = $.loadFile('./App.jsx', {})
+    let rootAst = $.loadFile('./index.jsx', {})
     if (rootAst) {
         let newContent = '';
         rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
@@ -135,7 +135,7 @@ const insertInFile = fileName => {
                 }
             })
         }
-        writeFileSync('./index2.jsx', newContent, 'utf-8');
+        writeFileSync('./index.jsx', newContent, 'utf-8');
         console.log('模块插入成功');
         goInstallDependencies(installDependencies)
     } else {
