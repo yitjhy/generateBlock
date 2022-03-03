@@ -1,28 +1,47 @@
 #! /usr/bin/env node
-const shell = require('shelljs');
-const { cat } = require("shelljs");
+const { cat, rm, mkdir, exec, cd, cp, mv } = require("shelljs");
 const $ = require("gogocode");
 const { writeFileSync } = require("fs");
 const ora = require('ora');
+const glob = require('glob');
 
-const copyFolder = 'bin';
+const copyFolder = 'src';
 const argv = process.argv;
 let gitUrl = argv[2];
+
+let dependenciesFromPackageJson = [];
+let installDependencies = [];
+
+const getDependenciesFromPackageJson = fileName => {
+    const packageJsonStr = cat(`${fileName}/package.json`).stdout;
+    const dependenciesSource= ['dependencies', 'peerDependencies', 'devDependencies']
+    const packageJson = JSON.parse(packageJsonStr);
+    const dependenciesFromPackageJson = dependenciesSource.reduce((pre, cur) => {
+        if (packageJson[cur]) return [...pre, ...Object.keys(packageJson[cur])];
+        return pre
+    }, []);
+    return dependenciesFromPackageJson
+}
+
 const generateBlock = async () => {
     const dirPath = 'tmp';
-    await shell.rm('-rf', dirPath);
-    await shell.mkdir('-p', [dirPath]);
+    await rm('-rf', dirPath);
+    await mkdir('-p', [dirPath]);
     const fileName = gitUrl.split('/').reverse()[0].split('.')[0];
-    await shell.cd(dirPath);
-    shell.exec(`git clone ${gitUrl}`, async (code, stdout, stderr) => {
+    await cd(dirPath);
+    exec(`git clone ${gitUrl}`, async (code, stdout, stderr) => {
         if (code === 0) {
             console.log('模块生成成功');
-            await shell.rm('-rf', `../${fileName}`);
-            await shell.cp('-R', [`${fileName}/bin/`],`../`);
-            await shell.cd(`../`);
-            await shell.mv([copyFolder], fileName);
-            await shell.rm('-rf', `${dirPath}`);
-            writeInParseFile(fileName)
+            dependenciesFromPackageJson = getDependenciesFromPackageJson(fileName);
+            await rm('-rf', `../${fileName}`);
+            await cp('-R', [`${fileName}/${copyFolder}/`], `../`);
+            await cd(`../`);
+            await mv([copyFolder], fileName);
+            await rm('-rf', `${dirPath}`);
+
+            installDependencies = await getInstallDependenciesList(fileName);
+
+            insertInFile(fileName)
         } else {
             console.log('Exit code:', code);
             console.log('Program output:', stdout);
@@ -45,22 +64,21 @@ const ToUpperCase = str => {
     return res
 }
 
-const haveImport = (code, targetBlock) => {
+const haveImport = (ast, targetBlock) => {
     let flag = false
-    code
-        .find(`import $_$1 from "$_$2"`)
+    ast
+        .find(`import "$_$source"`)
         .each(item => {
-            if(item.match[2][0].value === `./${targetBlock}`) {
+            if(item.match['source'][0].value === `./${targetBlock}`) {
                 flag = true
             }
         })
     return flag
 }
 
-const installDependencies = dependenciesList => {
-    const spinner = ora({text: `模块相关依赖正在下载中...\n`, color: 'red'});
-    spinner.start();
-    shell.exec(`npm install ${dependenciesList.join('  ')} --save`, async (code, stdout, stderr) => {
+const goInstallDependencies = dependenciesList => {
+    const spinner = ora({text: `模块相关依赖正在下载中...\n`, color: 'red'}).start();
+    exec(`npm install ${dependenciesList.join('  ')}  --save`, async (code, stdout, stderr) => {
         spinner.stop();
         if (code === 0) {
             console.log('模块相关依赖下载成功');
@@ -72,32 +90,54 @@ const installDependencies = dependenciesList => {
     });
 }
 
-const judgeIsDependencies = depStr => {
-    const reg = new RegExp(/^[a-zA-Z]*$/g);
-    if (reg.test(depStr.split('')[0])) return depStr
+const getDependenciesFromFile = rootAst => {
+    const dependenciesFromFile = [];
+    rootAst.find(`import $_$name from '$_$source'`).each(importNode => {
+        const dependencies = importNode.match['source'][0].value;
+        dependenciesFromFile.push(dependencies)
+    })
+    rootAst.find(`import { $_$name } from '$_$source'`).each(importNode => {
+        const dependencies = importNode.match['source'][0].value;
+        dependenciesFromFile.push(dependencies)
+    })
+    rootAst.find(`import '$_$source'`).each(importNode => {
+        const dependencies = importNode.match['source'][0].value;
+        dependenciesFromFile.push(dependencies)
+    })
+    return Array.from(new Set(dependenciesFromFile))
 }
 
-const writeInParseFile = fileName => {
-    const targetContent = cat('./App.jsx').stdout;
-    if (targetContent) {
+const getInstallDependenciesList = fileName => {
+    const dependenciesFromFile = [];
+    return new Promise((resolve) => {
+        glob(`./${fileName}/**/*.js*`,  (err, files) => {
+            files.forEach(file => {
+                dependenciesFromFile.push(...getDependenciesFromFile($.loadFile(file, {})))
+            })
+            const installDependencies = dependenciesFromFile.filter(dependencies => dependenciesFromPackageJson.some(dependencies2 => dependencies2 === dependencies));
+            resolve(installDependencies);
+        })
+    })
+}
+
+const insertInFile = fileName => {
+    let rootAst = $.loadFile('./App.jsx', {})
+    if (rootAst) {
         let newContent = '';
-        const dependencies = [];
-        let rootAst = $(targetContent).replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
+        rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
         if (haveImport(rootAst, fileName)) {
             newContent = rootAst.generate();
         } else {
-            const importAst = rootAst.find(`import $_$0 from '$_$1'`);
-            rootAst.find(`import $_$name from '$_$source'`).each((importNode, index) => {
-                if (importAst.length -1  === index) {
+            const importAst = rootAst.find(`import '$_$1'`);
+            rootAst.find(`import '$_$source'`).each((importNode, index) => {
+                if (importAst.length - 1  === index) {
                     newContent = importNode.after(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).root().generate();
                 }
-                const depend = judgeIsDependencies(importNode.match['source'][0].value)
-                dependencies.push(depend)
             })
         }
         writeFileSync('./index2.jsx', newContent, 'utf-8');
         console.log('模块插入成功');
-        installDependencies(dependencies)
+        goInstallDependencies(installDependencies)
     } else {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
     }
