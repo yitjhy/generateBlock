@@ -4,6 +4,10 @@ const $ = require("gogocode");
 const { writeFileSync, existsSync } = require("fs");
 const ora = require('ora');
 const glob = require('glob');
+const acorn = require("acorn");
+const jsx = require("acorn-jsx");
+
+const parser = acorn.Parser.extend(jsx());
 
 const copyFolder = 'src';
 const argv = process.argv;
@@ -120,12 +124,31 @@ const getInstallDependenciesList = fileName => {
     })
 }
 
+
+
+const insertComponentAst = (rootAst, componentName) => {
+    const res = rootAst.find(`return '$_$value'`);
+    const res3 = res['0'].match['value']['0'].node.children;
+    for (let i = 0; i < res3.length; i++ ) {
+        if (res3[i].type === "JSXElement") {
+            const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
+            res3.splice(i + 1, 0, uiFlagAst);
+            i++;
+        }
+    }
+    res3.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
+    return rootAst
+}
+
 const insertInFile = fileName => {
-    if (!existsSync('./index.jsx')) {
+    if (!existsSync('./App.jsx')) {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
         return false
     }
-    let rootAst = $.loadFile('./index.jsx', {})
+    let rootAst = $.loadFile('./App.jsx', {});
+
+    rootAst = insertComponentAst(rootAst, fileName);
+
     let newContent = '';
     rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
     if (haveImport(rootAst, fileName)) {
@@ -138,7 +161,7 @@ const insertInFile = fileName => {
             }
         })
     }
-    writeFileSync('./index.jsx', newContent, 'utf-8');
+    writeFileSync('./index2.jsx', newContent, 'utf-8');
     console.log('模块插入成功');
     goInstallDependencies(installDependencies)
 }
