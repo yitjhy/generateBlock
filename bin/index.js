@@ -1,7 +1,7 @@
 #! /usr/bin/env node
 const { cat, rm, mkdir, exec, cd, cp, mv } = require("shelljs");
 const $ = require("gogocode");
-const { writeFileSync } = require("fs");
+const { writeFileSync, existsSync } = require("fs");
 const ora = require('ora');
 const glob = require('glob');
 
@@ -121,26 +121,26 @@ const getInstallDependenciesList = fileName => {
 }
 
 const insertInFile = fileName => {
-    let rootAst = $.loadFile('./index.jsx', {})
-    if (rootAst) {
-        let newContent = '';
-        rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
-        if (haveImport(rootAst, fileName)) {
-            newContent = rootAst.generate();
-        } else {
-            const importAst = rootAst.find(`import '$_$1'`);
-            rootAst.find(`import '$_$source'`).each((importNode, index) => {
-                if (importAst.length - 1  === index) {
-                    newContent = importNode.after(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).root().generate();
-                }
-            })
-        }
-        writeFileSync('./index.jsx', newContent, 'utf-8');
-        console.log('模块插入成功');
-        goInstallDependencies(installDependencies)
-    } else {
+    if (!existsSync('./index.jsx')) {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
+        return false
     }
+    let rootAst = $.loadFile('./index.jsx', {})
+    let newContent = '';
+    rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
+    if (haveImport(rootAst, fileName)) {
+        newContent = rootAst.generate();
+    } else {
+        const importAst = rootAst.find(`import '$_$1'`);
+        rootAst.find(`import '$_$source'`).each((importNode, index) => {
+            if (importAst.length - 1  === index) {
+                newContent = importNode.after(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).root().generate();
+            }
+        })
+    }
+    writeFileSync('./index.jsx', newContent, 'utf-8');
+    console.log('模块插入成功');
+    goInstallDependencies(installDependencies)
 }
 
 if (gitUrl) {
