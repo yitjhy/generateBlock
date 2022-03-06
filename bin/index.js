@@ -180,7 +180,7 @@ const insertComponentAst = (rootAst, componentName) => {
 }
 
 const insertInFile = fileName => {
-    if (!existsSync('./App.jsx')) {
+    if (!existsSync('./index.jsx')) {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
         process.exit(1)
         return false
@@ -202,7 +202,7 @@ const insertInFile = fileName => {
             }
         })
     }
-    writeFileSync('./index2.jsx', newContent, 'utf-8');
+    writeFileSync('./index.jsx', newContent, 'utf-8');
     console.log('模块插入成功');
     goInstallDependencies(installDependencies)
 }
