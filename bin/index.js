@@ -185,7 +185,7 @@ const insertInFile = fileName => {
         process.exit(1)
         return false
     }
-    let rootAst = $.loadFile('./App.jsx', {});
+    let rootAst = $.loadFile('./index.jsx', {});
 
     rootAst = insertComponentAst(rootAst, fileName);
 
