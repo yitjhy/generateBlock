@@ -19,3 +19,6 @@ sudo npm i generateblock -g
 ```
 generateblock git@github.com:yitjhy/shareGenerateComDemo.git
 ```
+
+### tips
+目前只支持函数组件

@@ -136,18 +136,21 @@ const insertComponentAst = (rootAst, componentName) => {
         fnAst.each(item => {
             const funcName = item.match['funcName'][0].value;
             if (exportDefaultName === funcName) {
+                const insertComponentNodeAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
+                const brAst = parser.parse(`<>
+</>`).body[0].expression.children[0];
                 fnAstIndex === 0 ? isInVarExpressionFn = false : isInVarExpressionFn = true;
                 const returnBody = item[0].match['return'][0].node.body;
                 const length = returnBody.length;
+                // TODO 后面要根据类型去判断
                 const returnChildrenAst = returnBody[length - 1]['argument'].children;
                 for (let i = 0; i < returnChildrenAst.length; i++ ) {
                     if (returnChildrenAst[i].type === "JSXElement") {
-                        const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
-                        returnChildrenAst.splice(i + 1, 0, uiFlagAst);
-                        i++;
+                        returnChildrenAst.splice(i + 1, 0, brAst, insertComponentNodeAst);
+                        i += 2;
                     }
                 }
-                returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
+                returnChildrenAst.unshift(brAst, insertComponentNodeAst);
             }
         })
     })
@@ -157,13 +160,13 @@ const insertComponentAst = (rootAst, componentName) => {
 }
 
 const insertInFile = fileName => {
-    if (!existsSync('./index.jsx')) {
+    if (!existsSync('./App.jsx')) {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
         process.exit(1)
         return false
     }
     let newContent = '';
-    let rootAst = $.loadFile('./index.jsx', {});
+    let rootAst = $.loadFile('./App.jsx', {});
 
     rootAst = insertComponentAst(rootAst, fileName);
 
@@ -178,7 +181,7 @@ const insertInFile = fileName => {
             }
         })
     }
-    writeFileSync('./index.jsx', newContent, 'utf-8');
+    writeFileSync('./index2.jsx', newContent, 'utf-8');
     console.log('模块插入成功');
     goInstallDependencies(installDependencies)
 }
