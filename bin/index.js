@@ -50,6 +50,7 @@ const generateBlock = async () => {
             console.log('Exit code:', code);
             console.log('Program output:', stdout);
             console.log('Program stderr:', stderr);
+            process.exit(1)
         }
     });
 }
@@ -90,6 +91,7 @@ const goInstallDependencies = dependenciesList => {
             console.log('Exit code:', code);
             console.log('Program output:', stdout);
             console.log('Program stderr:', stderr);
+            process.exit(1)
         }
     });
 }
@@ -124,30 +126,52 @@ const getInstallDependenciesList = fileName => {
     })
 }
 
-
-
 const insertComponentAst = (rootAst, componentName) => {
-    const res = rootAst.find(`return '$_$value'`);
-    const res3 = res['0'].match['value']['0'].node.children;
-    for (let i = 0; i < res3.length; i++ ) {
-        if (res3[i].type === "JSXElement") {
-            const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
-            res3.splice(i + 1, 0, uiFlagAst);
-            i++;
+
+    const exportDefaultAst = rootAst.find(`export default $_$exportDefaultName`)
+    const exportDefaultName = exportDefaultAst['0'].match['exportDefaultName'][0].value
+
+    const res6 = rootAst.find(`function $_$funcName () {}`);
+
+    let targetFuncAst = null;
+    res6.each(item => {
+        const funcName = item.match['funcName'][0].value;
+        console.log(11);
+        console.log(funcName)
+        if (exportDefaultName === funcName) {
+            targetFuncAst = item;
         }
-    }
-    res3.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
-    return rootAst
+    })
+    const res7 = rootAst.find(`const $_$funcName = () => "$_$return"`)
+
+    res7.each(item => {
+        const funcName = item.match['funcName'][0].value;
+        if (exportDefaultName === funcName) {
+            const length = item[0].match['return'][0].node.body.length;
+            const returnChildrenAst = item[0].match['return'][0].node.body[length - 1]['argument'].children;
+            for (let i = 0; i < returnChildrenAst.length; i++ ) {
+                if (returnChildrenAst[i].type === "JSXElement") {
+                    const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
+                    returnChildrenAst.splice(i + 1, 0, uiFlagAst);
+                    i++;
+                }
+            }
+            returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
+        }
+    })
+    return res7.root()
 }
 
 const insertInFile = fileName => {
     if (!existsSync('./App.jsx')) {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
+        process.exit(1)
         return false
     }
     let rootAst = $.loadFile('./App.jsx', {});
 
     rootAst = insertComponentAst(rootAst, fileName);
+
 
     let newContent = '';
     rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
@@ -170,4 +194,15 @@ if (gitUrl) {
     generateBlock().then();
 } else {
     console.log('请输入url地址');
+    process.exit(1)
 }
+
+// const res5 = $(source).find(`export default $_$value`)
+// console.log(3333333)
+// console.log(res5['0'].match['value'][0].value)
+// const res6 = $(source).find(`function $_$() {}`)
+// console.log(5555)
+// console.log(res6)
+// const res7 = $(source).find(`const $_$1 = () => "$_$2"`)
+// console.log(7777)
+// console.log(res7)
