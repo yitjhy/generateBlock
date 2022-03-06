@@ -127,82 +127,59 @@ const getInstallDependenciesList = fileName => {
 }
 
 const insertComponentAst = (rootAst, componentName) => {
-
-    const exportDefaultAst = rootAst.find(`export default $_$exportDefaultName`)
-    const exportDefaultName = exportDefaultAst['0'].match['exportDefaultName'][0].value
+    const exportDefaultAst = rootAst.find(`export default $_$exportDefaultName`);
+    const exportDefaultName = exportDefaultAst['0'].match['exportDefaultName'][0].value;
 
     const functionDeclarationAst = rootAst.find(`function $_$funcName () {$_$return}`);
-
+    const varExpressionFnAst = rootAst.find(`const $_$funcName = () => "$_$return"`);
     let isInVarExpressionFn = true;
-
-    // 处理function函数
-    functionDeclarationAst.each(item => {
-        const funcName = item.match['funcName'][0].value;
-        if (exportDefaultName === funcName) {
-            isInVarExpressionFn = false;
-            const length = item[0].match['return'][0].node.body.length;
-            const returnChildrenAst = item[0].match['return'][0].node.body[length - 1]['argument'].children;
-            for (let i = 0; i < returnChildrenAst.length; i++ ) {
-                if (returnChildrenAst[i].type === "JSXElement") {
-                    const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
-                    returnChildrenAst.splice(i + 1, 0, uiFlagAst);
-                    i++;
+    [functionDeclarationAst, varExpressionFnAst].forEach((fnAst, fnAstIndex) => {
+        fnAst.each(item => {
+            const funcName = item.match['funcName'][0].value;
+            if (exportDefaultName === funcName) {
+                fnAstIndex === 0 ? isInVarExpressionFn = false : isInVarExpressionFn = true;
+                const returnBody = item[0].match['return'][0].node.body;
+                const length = returnBody.length;
+                const returnChildrenAst = returnBody[length - 1]['argument'].children;
+                for (let i = 0; i < returnChildrenAst.length; i++ ) {
+                    if (returnChildrenAst[i].type === "JSXElement") {
+                        const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
+                        returnChildrenAst.splice(i + 1, 0, uiFlagAst);
+                        i++;
+                    }
                 }
+                returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
             }
-            returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
-        }
+        })
     })
 
-    const varExpressionFnAst = rootAst.find(`const $_$funcName = () => "$_$return"`)
-    // 处理 () => {} 函数
-    varExpressionFnAst.each(item => {
-        const funcName = item.match['funcName'][0].value;
-        if (exportDefaultName === funcName) {
-            isInVarExpressionFn = true;
-            const length = item[0].match['return'][0].node.body.length;
-            const returnChildrenAst = item[0].match['return'][0].node.body[length - 1]['argument'].children;
-            for (let i = 0; i < returnChildrenAst.length; i++ ) {
-                if (returnChildrenAst[i].type === "JSXElement") {
-                    const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
-                    returnChildrenAst.splice(i + 1, 0, uiFlagAst);
-                    i++;
-                }
-            }
-            returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
-        }
-        return varExpressionFnAst.root()
-    })
-    if (isInVarExpressionFn) {
-        return varExpressionFnAst.root()
-    } else {
-        return functionDeclarationAst.root()
-    }
+    if (isInVarExpressionFn) return varExpressionFnAst.root();
+    return functionDeclarationAst.root()
 }
 
 const insertInFile = fileName => {
-    if (!existsSync('./index.jsx')) {
+    if (!existsSync('./App.jsx')) {
         console.log('当前目录下无index.jsx文件，无法向其插入代码');
         process.exit(1)
         return false
     }
-    let rootAst = $.loadFile('./index.jsx', {});
+    let newContent = '';
+    let rootAst = $.loadFile('./App.jsx', {});
 
     rootAst = insertComponentAst(rootAst, fileName);
 
-
-    let newContent = '';
     rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
     if (haveImport(rootAst, fileName)) {
         newContent = rootAst.generate();
     } else {
-        const importAst = rootAst.find(`import '$_$1'`);
-        rootAst.find(`import '$_$source'`).each((importNode, index) => {
+        const importAst = rootAst.find(`import '$_$source'`);
+        importAst.each((importNode, index) => {
             if (importAst.length - 1  === index) {
                 newContent = importNode.after(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).root().generate();
             }
         })
     }
-    writeFileSync('./index.jsx', newContent, 'utf-8');
+    writeFileSync('./index2.jsx', newContent, 'utf-8');
     console.log('模块插入成功');
     goInstallDependencies(installDependencies)
 }
