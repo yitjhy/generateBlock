@@ -142,9 +142,9 @@ const insertComponentAst = (rootAst, componentName) => {
             targetFuncAst = item;
         }
     })
-    const res7 = rootAst.find(`const $_$funcName = () => "$_$return"`)
+    const varExpressionFnAst = rootAst.find(`const $_$funcName = () => "$_$return"`)
 
-    res7.each(item => {
+    varExpressionFnAst.each(item => {
         const funcName = item.match['funcName'][0].value;
         if (exportDefaultName === funcName) {
             const length = item[0].match['return'][0].node.body.length;
@@ -159,7 +159,7 @@ const insertComponentAst = (rootAst, componentName) => {
             returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
         }
     })
-    return res7.root()
+    return varExpressionFnAst.root()
 }
 
 const insertInFile = fileName => {
