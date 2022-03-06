@@ -131,22 +131,15 @@ const insertComponentAst = (rootAst, componentName) => {
     const exportDefaultAst = rootAst.find(`export default $_$exportDefaultName`)
     const exportDefaultName = exportDefaultAst['0'].match['exportDefaultName'][0].value
 
-    const res6 = rootAst.find(`function $_$funcName () {}`);
+    const functionDeclarationAst = rootAst.find(`function $_$funcName () {$_$return}`);
 
-    let targetFuncAst = null;
-    res6.each(item => {
-        const funcName = item.match['funcName'][0].value;
-        console.log(11);
-        console.log(funcName)
-        if (exportDefaultName === funcName) {
-            targetFuncAst = item;
-        }
-    })
-    const varExpressionFnAst = rootAst.find(`const $_$funcName = () => "$_$return"`)
+    let isInVarExpressionFn = true;
 
-    varExpressionFnAst.each(item => {
+    // 处理function函数
+    functionDeclarationAst.each(item => {
         const funcName = item.match['funcName'][0].value;
         if (exportDefaultName === funcName) {
+            isInVarExpressionFn = false;
             const length = item[0].match['return'][0].node.body.length;
             const returnChildrenAst = item[0].match['return'][0].node.body[length - 1]['argument'].children;
             for (let i = 0; i < returnChildrenAst.length; i++ ) {
@@ -159,7 +152,31 @@ const insertComponentAst = (rootAst, componentName) => {
             returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
         }
     })
-    return varExpressionFnAst.root()
+
+    const varExpressionFnAst = rootAst.find(`const $_$funcName = () => "$_$return"`)
+    // 处理 () => {} 函数
+    varExpressionFnAst.each(item => {
+        const funcName = item.match['funcName'][0].value;
+        if (exportDefaultName === funcName) {
+            isInVarExpressionFn = true;
+            const length = item[0].match['return'][0].node.body.length;
+            const returnChildrenAst = item[0].match['return'][0].node.body[length - 1]['argument'].children;
+            for (let i = 0; i < returnChildrenAst.length; i++ ) {
+                if (returnChildrenAst[i].type === "JSXElement") {
+                    const uiFlagAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
+                    returnChildrenAst.splice(i + 1, 0, uiFlagAst);
+                    i++;
+                }
+            }
+            returnChildrenAst.unshift(parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression);
+        }
+        return varExpressionFnAst.root()
+    })
+    if (isInVarExpressionFn) {
+        return varExpressionFnAst.root()
+    } else {
+        return functionDeclarationAst.root()
+    }
 }
 
 const insertInFile = fileName => {
@@ -196,13 +213,3 @@ if (gitUrl) {
     console.log('请输入url地址');
     process.exit(1)
 }
-
-// const res5 = $(source).find(`export default $_$value`)
-// console.log(3333333)
-// console.log(res5['0'].match['value'][0].value)
-// const res6 = $(source).find(`function $_$() {}`)
-// console.log(5555)
-// console.log(res6)
-// const res7 = $(source).find(`const $_$1 = () => "$_$2"`)
-// console.log(7777)
-// console.log(res7)
