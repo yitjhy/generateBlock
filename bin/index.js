@@ -12,16 +12,6 @@ const parser = acorn.Parser.extend(jsx());
 const argv = process.argv;
 let gitUrl = argv[2];
 
-const getDependenciesFromPackageJson = fileName => {
-    const packageJsonStr = cat(`${fileName}/package.json`).stdout;
-    const dependenciesSource= ['dependencies', 'peerDependencies', 'devDependencies']
-    const packageJson = JSON.parse(packageJsonStr);
-    return dependenciesSource.reduce((pre, cur) => {
-        if (packageJson[cur]) return [...pre, ...Object.keys(packageJson[cur])];
-        return pre
-    }, [])
-}
-
 const generateBlock = async () => {
     const copyFolder = 'src';
     const tmpPath = 'tmp';
@@ -31,7 +21,7 @@ const generateBlock = async () => {
     await cd(tmpPath);
     exec(`git clone ${gitUrl}`, async (code, stdout, stderr) => {
         if (code === 0) {
-            console.log('模块生成成功');
+            ora({text: `代码片段生成成功`, color: 'red', isEnabled: true}).succeed();
             const dependenciesFromPackageJson = getDependenciesFromPackageJson(fileName);
             await rm('-rf', `../${fileName}`);
             await cp('-R', [`${fileName}/${copyFolder}/`], `../`);
@@ -51,6 +41,16 @@ const generateBlock = async () => {
             process.exit(1)
         }
     });
+}
+
+const getDependenciesFromPackageJson = fileName => {
+    const packageJsonStr = cat(`${fileName}/package.json`).stdout;
+    const dependenciesSource= ['dependencies', 'peerDependencies', 'devDependencies']
+    const packageJson = JSON.parse(packageJsonStr);
+    return dependenciesSource.reduce((pre, cur) => {
+        if (packageJson[cur]) return [...pre, ...Object.keys(packageJson[cur])];
+        return pre
+    }, [])
 }
 
 const ToUpperCase = str => {
@@ -80,13 +80,13 @@ const haveImport = (ast, targetBlock) => {
 }
 
 const goInstallDependencies = (dependenciesList, callback) => {
-    const spinner = ora({text: `模块相关依赖正在下载中...\n`, color: 'red'}).start();
+    let spinner = ora({text: `代码片段相关依赖正在下载中...`, color: 'red', isEnabled: true}).start();
     exec(`npm install ${dependenciesList.join('  ')}  --save`, async (code, stdout, stderr) => {
-        spinner.stop();
         if (code === 0) {
-            console.log('模块相关依赖下载完成');
+            spinner.succeed('代码片段相关依赖下载完成');
             callback && callback();
         } else {
+            spinner.stop();
             console.log('Exit code:', code);
             console.log('Program output:', stdout);
             console.log('Program stderr:', stderr);
@@ -161,7 +161,7 @@ const insertComponentAst = (rootAst, componentName) => {
 
 const insertInFile = fileName => {
     if (!existsSync('./index.jsx')) {
-        console.log('当前目录下无index.jsx文件，无法向其插入代码');
+        ora({text: `当前目录下无index.jsx文件，无法向其插入代码`, color: 'yellow', isEnabled: true}).fail();
         process.exit(1)
         return false
     }
@@ -182,12 +182,12 @@ const insertInFile = fileName => {
         })
     }
     writeFileSync('./index.jsx', newContent, 'utf-8');
-    console.log('模块插入成功');
+    ora({text: `代码片段插入成功`, color: 'yellow', isEnabled: true}).succeed();
 }
 
 if (gitUrl) {
     generateBlock().then();
 } else {
-    console.log('请输入url地址');
+    ora({text: `请输入url地址`, color: 'yellow', isEnabled: true}).fail();
     process.exit(1)
 }
