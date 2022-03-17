@@ -9,12 +9,8 @@ const jsx = require("acorn-jsx");
 
 const parser = acorn.Parser.extend(jsx());
 
-const copyFolder = 'src';
 const argv = process.argv;
 let gitUrl = argv[2];
-
-let dependenciesFromPackageJson = [];
-let installDependencies = [];
 
 const getDependenciesFromPackageJson = fileName => {
     const packageJsonStr = cat(`${fileName}/package.json`).stdout;
@@ -27,25 +23,28 @@ const getDependenciesFromPackageJson = fileName => {
 }
 
 const generateBlock = async () => {
-    const dirPath = 'tmp';
-    await rm('-rf', dirPath);
-    await mkdir('-p', [dirPath]);
+    const copyFolder = 'src';
+    const tmpPath = 'tmp';
+    await rm('-rf', tmpPath);
+    await mkdir('-p', [tmpPath]);
     const fileName = gitUrl.split('/').reverse()[0].split('.')[0];
-    await cd(dirPath);
+    await cd(tmpPath);
     exec(`git clone ${gitUrl}`, async (code, stdout, stderr) => {
         if (code === 0) {
             console.log('模块生成成功');
-            dependenciesFromPackageJson = getDependenciesFromPackageJson(fileName);
+            const dependenciesFromPackageJson = getDependenciesFromPackageJson(fileName);
             await rm('-rf', `../${fileName}`);
             await cp('-R', [`${fileName}/${copyFolder}/`], `../`);
             await cd(`../`);
+            await rm('-rf', `${tmpPath}`);
             await mv([copyFolder], fileName);
-            await rm('-rf', `${dirPath}`);
 
-            installDependencies = await getInstallDependenciesList(fileName);
-
-            insertInFile(fileName)
+            const installDependencies = await getInstallDependenciesList(fileName, dependenciesFromPackageJson);
+            const callback = () => {insertInFile(fileName)};
+            goInstallDependencies(installDependencies, callback)
         } else {
+            await cd(`../`);
+            await rm('-rf', `${tmpPath}`);
             console.log('Exit code:', code);
             console.log('Program output:', stdout);
             console.log('Program stderr:', stderr);
@@ -80,12 +79,13 @@ const haveImport = (ast, targetBlock) => {
     return flag
 }
 
-const goInstallDependencies = dependenciesList => {
+const goInstallDependencies = (dependenciesList, callback) => {
     const spinner = ora({text: `模块相关依赖正在下载中...\n`, color: 'red'}).start();
     exec(`npm install ${dependenciesList.join('  ')}  --save`, async (code, stdout, stderr) => {
         spinner.stop();
         if (code === 0) {
-            console.log('模块相关依赖下载成功');
+            console.log('模块相关依赖下载完成');
+            callback && callback();
         } else {
             console.log('Exit code:', code);
             console.log('Program output:', stdout);
@@ -112,7 +112,7 @@ const getDependenciesFromFile = rootAst => {
     return Array.from(new Set(dependenciesFromFile))
 }
 
-const getInstallDependenciesList = fileName => {
+const getInstallDependenciesList = (fileName, dependenciesFromPackageJson) => {
     const dependenciesFromFile = [];
     return new Promise((resolve) => {
         glob(`./${fileName}/**/*.js*`,  (err, files) => {
@@ -183,7 +183,6 @@ const insertInFile = fileName => {
     }
     writeFileSync('./index.jsx', newContent, 'utf-8');
     console.log('模块插入成功');
-    goInstallDependencies(installDependencies)
 }
 
 if (gitUrl) {
