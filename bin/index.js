@@ -9,28 +9,39 @@ const jsx = require("acorn-jsx");
 
 const parser = acorn.Parser.extend(jsx());
 
+let gitUrl = 'git@github.com:yitjhy/shareGenerateComDemo.git';
 const argv = process.argv;
-let gitUrl = argv[2];
+// let gitUrl = argv[2];
+const blockName = argv[2];
+
 
 const generateBlock = async () => {
     const copyFolder = 'src';
     const tmpPath = 'tmp';
     await rm('-rf', tmpPath);
+
+    // TODO 校验是否删除
+    await rm('-rf', blockName);
     await mkdir('-p', [tmpPath]);
     const fileName = gitUrl.split('/').reverse()[0].split('.')[0];
     await cd(tmpPath);
     exec(`git clone ${gitUrl}`, async (code, stdout, stderr) => {
         if (code === 0) {
             ora({text: `代码片段生成成功`, color: 'red', isEnabled: true}).succeed();
-            const dependenciesFromPackageJson = getDependenciesFromPackageJson(fileName);
+            const dependenciesFromPackageJson = getDependenciesFromPackageJson(`${fileName}/src/${blockName}`);
             await rm('-rf', `../${fileName}`);
-            await cp('-R', [`${fileName}/${copyFolder}/`], `../`);
+            if (!existsSync(`${fileName}/${copyFolder}/${blockName}`)) {
+                console.log(`${blockName} 片段不存在, 请检查片段名是否有误`);
+                return false
+            }
+            await cp('-R', [`${fileName}/${copyFolder}/${blockName}/demo/`], `../${blockName}`);
             await cd(`../`);
             await rm('-rf', `${tmpPath}`);
-            await mv([copyFolder], fileName);
+            // await mv(['demo'], blockName);
 
             const installDependencies = await getInstallDependenciesList(fileName, dependenciesFromPackageJson);
-            const callback = () => {insertInFile(fileName)};
+            console.log(installDependencies);
+            const callback = () => {insertInFile(blockName)};
             goInstallDependencies(installDependencies, callback)
         } else {
             await cd(`../`);
