@@ -38,11 +38,11 @@ const generateBlock = async () => {
             await cd(`../`);
             await rm('-rf', `${tmpPath}`);
             // await mv(['demo'], blockName);
-
-            const installDependencies = await getInstallDependenciesList(fileName, dependenciesFromPackageJson);
-            console.log(installDependencies);
+            console.log(dependenciesFromPackageJson);
+            const installDependencies = await getInstallDependenciesList(blockName, dependenciesFromPackageJson);
+            console.log(Array.from(new Set(installDependencies)));
             const callback = () => {insertInFile(blockName)};
-            goInstallDependencies(installDependencies, callback)
+            goInstallDependencies(Array.from(new Set(installDependencies)), callback)
         } else {
             await cd(`../`);
             await rm('-rf', `${tmpPath}`);
