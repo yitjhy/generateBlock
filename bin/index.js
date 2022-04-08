@@ -1,46 +1,65 @@
 #! /usr/bin/env node
 const { cat, rm, mkdir, exec, cd, cp, mv } = require("shelljs");
+const inquirer = require('inquirer');
+const chalk = require('chalk');
 const $ = require("gogocode");
 const { writeFileSync, existsSync } = require("fs");
 const ora = require('ora');
 const glob = require('glob');
 const acorn = require("acorn");
 const jsx = require("acorn-jsx");
+const config = require('./constant');
 
 const parser = acorn.Parser.extend(jsx());
 
-let gitUrl = 'git@github.com:yitjhy/shareGenerateComDemo.git';
+// let gitUrl = 'git@github.com:yitjhy/shareGenerateComDemo.git';
+let gitUrl = 'git@github.com:yitjhy/generate-block-static-site.git';
 const argv = process.argv;
 // let gitUrl = argv[2];
 const blockName = argv[2];
 
+const verifyIsRemoveBlockName = async blockName => {
+    const { isOverWriteBlock } = await inquirer.prompt([
+        {
+            type: 'confirm',
+            name: 'isOverWriteBlock',
+            message: `当前文件夹已经有同名模块 ${chalk.red(blockName)}, 是否覆盖?`,
+            default: false
+        }
+    ])
+    return isOverWriteBlock
+}
 
 const generateBlock = async () => {
-    const copyFolder = 'src';
     const tmpPath = 'tmp';
-    await rm('-rf', tmpPath);
+    if (existsSync(tmpPath)) {
+        await rm('-rf', tmpPath);
+    }
 
-    // TODO 校验是否删除
+
+    if (existsSync(blockName)) {
+        const isOverWriteBlock = await verifyIsRemoveBlockName(blockName);
+        if (!isOverWriteBlock) return false
+    }
     await rm('-rf', blockName);
+
     await mkdir('-p', [tmpPath]);
-    const fileName = gitUrl.split('/').reverse()[0].split('.')[0];
+    const gitSourceName = gitUrl.split('/').reverse()[0].split('.')[0];
     await cd(tmpPath);
     exec(`git clone ${gitUrl}`, async (code, stdout, stderr) => {
         if (code === 0) {
             ora({text: `代码片段生成成功`, color: 'red', isEnabled: true}).succeed();
-            const dependenciesFromPackageJson = getDependenciesFromPackageJson(`${fileName}/src/${blockName}`);
-            await rm('-rf', `../${fileName}`);
-            if (!existsSync(`${fileName}/${copyFolder}/${blockName}`)) {
+            const dependenciesFromPackageJson = getDependenciesFromPackageJson(`${gitSourceName}/${config.rootFolder}/${blockName}`);
+            await rm('-rf', `../${gitSourceName}`);
+            if (!existsSync(`${gitSourceName}/${config.rootFolder}/${blockName}`)) {
                 console.log(`${blockName} 片段不存在, 请检查片段名是否有误`);
                 return false
             }
-            await cp('-R', [`${fileName}/${copyFolder}/${blockName}/demo/`], `../${blockName}`);
+            await cp('-R', [`${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`], `../${blockName}`);
             await cd(`../`);
             await rm('-rf', `${tmpPath}`);
             // await mv(['demo'], blockName);
-            console.log(dependenciesFromPackageJson);
             const installDependencies = await getInstallDependenciesList(blockName, dependenciesFromPackageJson);
-            console.log(Array.from(new Set(installDependencies)));
             const callback = () => {insertInFile(blockName)};
             goInstallDependencies(Array.from(new Set(installDependencies)), callback)
         } else {
@@ -55,6 +74,10 @@ const generateBlock = async () => {
 }
 
 const getDependenciesFromPackageJson = fileName => {
+    if (!existsSync(`${fileName}/package.json`)) {
+        console.log(chalk.yellow(`代码块中${fileName}/package.json 不存在, 无法自动解析代码块依赖, 可能需要手动下载模块依赖`));
+        return []
+    }
     const packageJsonStr = cat(`${fileName}/package.json`).stdout;
     const dependenciesSource= ['dependencies', 'peerDependencies', 'devDependencies']
     const packageJson = JSON.parse(packageJsonStr);
