@@ -1,6 +1,6 @@
 {
   "name": "generateblock",
-  "version": "0.6.5",
+  "version": "1.0.0",
   "description": "generateblock",
   "keywords": [
     "generateblock"
@@ -20,14 +20,14 @@
   },
   "author": "js",
   "dependencies": {
-    "acorn": "^8.7.0",
-    "acorn-jsx": "^5.3.2",
-    "chalk": "^3.0.0",
+    "acorn": "8.7.0",
+    "acorn-jsx": "5.3.2",
+    "chalk": "3.0.0",
     "fs": "^0.0.1-security",
-    "glob": "^7.2.0",
-    "gogocode": "^1.0.49",
-    "inquirer": "^8.2.2",
-    "ora": "^5.1.0",
-    "shelljs": "^0.8.5"
+    "glob": "7.2.0",
+    "gogocode": "1.0.49",
+    "inquirer": "8.2.2",
+    "ora": "5.1.0",
+    "shelljs": "0.8.5"
   }
 }

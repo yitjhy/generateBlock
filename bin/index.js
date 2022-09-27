@@ -78,9 +78,11 @@ const haveImport = (ast, targetBlock) => {
     return flag
 }
 
+const haveUiFlag = ast => ast.find(`<UIFlag />`).length;
+
 const goInstallDependencies = (dependenciesList, callback) => {
     let spinner = ora({text: `代码片段相关依赖正在下载中...`, color: 'red', isEnabled: true}).start();
-    exec(`npm install ${dependenciesList.join('  ')}  --save`, async (code, stdout, stderr) => {
+    exec(`npm install ${dependenciesList.join('  ')}  --save --force`, async (code, stdout, stderr) => {
         if (code === 0) {
             spinner.succeed('代码片段相关依赖下载完成');
             callback && callback();
@@ -143,12 +145,14 @@ const insertComponentAst = (rootAst, componentName) => {
                 const length = returnBody.length;
                 // TODO 后面要根据类型去判断
                 const returnChildrenAst = returnBody[length - 1]['argument'].children;
-                for (let i = 0; i < returnChildrenAst.length; i++ ) {
-                    if (returnChildrenAst[i].type === "JSXElement") {
-                        returnChildrenAst.splice(i + 1, 0, brAst, insertComponentNodeAst);
-                        i += 2;
-                    }
-                }
+                // 向每一个节点前添加
+                // for (let i = 0; i < returnChildrenAst.length; i++ ) {
+                //     if (returnChildrenAst[i].type === "JSXElement") {
+                //         returnChildrenAst.splice(i + 1, 0, brAst, insertComponentNodeAst);
+                //         i += 2;
+                //     }
+                // }
+                // 添加到第一个节点
                 returnChildrenAst.unshift(brAst, insertComponentNodeAst);
             }
         })
@@ -162,9 +166,13 @@ const insertInFile = fileName => {
     let newContent = '';
     let rootAst = $.loadFile('./index.jsx', {});
 
-    rootAst = insertComponentAst(rootAst, fileName);
-
-    rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
+    if (haveUiFlag(rootAst)) {
+        // 将 <UIFlag /> 替换为引入组件
+        rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
+    } else {
+        // 将组件插入默认位置
+        rootAst = insertComponentAst(rootAst, fileName);
+    }
     if (haveImport(rootAst, fileName)) {
         newContent = rootAst.generate();
     } else {
