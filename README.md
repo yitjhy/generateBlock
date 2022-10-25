@@ -17,7 +17,7 @@ sudo npm i generateblock -g
 ```
 ### 使用方式
 ```
-generateblock git@github.com:yitjhy/shareGenerateComDemo.git
+generateblock hightlightCode
 ```
 
 ### tips
