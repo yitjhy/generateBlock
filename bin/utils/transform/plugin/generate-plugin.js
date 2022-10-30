@@ -78,7 +78,7 @@ const generatePlugin = declare((api, options, dirname) => {
             JSXElement (path, state) {
                 const elementLabel = path.get('openingElement').get('name').toString();
                 if (elementLabel === 'UIFlag') {
-                    const componentAst = api.template(`<${state.componentName} />`, {plugins: ['jsx']})().expression;
+                    const componentAst = api.template.expression(`<${state.componentName} />`, {plugins: ['jsx']})();
                     path.replaceWith(componentAst)
                 }
             },
