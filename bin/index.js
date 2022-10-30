@@ -6,10 +6,11 @@ const $ = require("gogocode");
 const { writeFileSync, existsSync } = require("fs");
 const ora = require('ora');
 const glob = require('glob');
-const acorn = require("acorn");
-const jsx = require("acorn-jsx");
+const path = require('path');
 const config = require('./constant');
-const parser = acorn.Parser.extend(jsx());
+const transform = require('./utils/transform/index');
+const getDependenciesFromFile = require('./utils/getDependencies/index');
+
 
 const argv = process.argv;
 const blockName = argv[2];
@@ -52,34 +53,6 @@ const getDependenciesFromPackageJson = fileName => {
     }, [])
 }
 
-const ToUpperCase = str => {
-    let res;
-    if (str.indexOf('-') !== -1) {
-        const arr = str.split('-');
-        res = arr.reduce((pre, cur) => {
-            pre += cur.slice(0,1).toUpperCase() +cur.slice(1);
-            return pre
-        }, '');
-    } else {
-        res = str.slice(0,1).toUpperCase() +str.slice(1);
-    }
-    return res
-}
-
-const haveImport = (ast, targetBlock) => {
-    let flag = false
-    ast
-        .find(`import "$_$source"`)
-        .each(item => {
-            if(item.match['source'][0].value === `./${targetBlock}`) {
-                flag = true
-            }
-        })
-    return flag
-}
-
-const haveUiFlag = ast => ast.find(`<UIFlag />`).length;
-
 const goInstallDependencies = (dependenciesList, callback) => {
     let spinner = ora({text: `代码片段相关依赖正在下载中...`, color: 'red', isEnabled: true}).start();
     exec(`npm install ${dependenciesList.join('  ')}  --save --force`, async (code, stdout, stderr) => {
@@ -96,29 +69,12 @@ const goInstallDependencies = (dependenciesList, callback) => {
     });
 }
 
-const getDependenciesFromFile = rootAst => {
-    const dependenciesFromFile = [];
-    rootAst.find(`import $_$name from '$_$source'`).each(importNode => {
-        const dependencies = importNode.match['source'][0].value;
-        dependenciesFromFile.push(dependencies)
-    })
-    rootAst.find(`import { $_$name } from '$_$source'`).each(importNode => {
-        const dependencies = importNode.match['source'][0].value;
-        dependenciesFromFile.push(dependencies)
-    })
-    rootAst.find(`import '$_$source'`).each(importNode => {
-        const dependencies = importNode.match['source'][0].value;
-        dependenciesFromFile.push(dependencies)
-    })
-    return Array.from(new Set(dependenciesFromFile))
-}
-
 const getInstallDependenciesList = (fileName, dependenciesFromPackageJson) => {
     const dependenciesFromFile = [];
     return new Promise((resolve) => {
         glob(`./${fileName}/**/*.js*`,  (err, files) => {
             files.forEach(file => {
-                dependenciesFromFile.push(...getDependenciesFromFile($.loadFile(file, {})))
+                dependenciesFromFile.push(...getDependenciesFromFile(path.join(process.cwd(), file)))
             })
             const installDependencies = dependenciesFromFile.filter(dependencies => dependenciesFromPackageJson.some(dependencies2 => dependencies2 === dependencies));
             resolve(installDependencies);
@@ -126,67 +82,11 @@ const getInstallDependenciesList = (fileName, dependenciesFromPackageJson) => {
     })
 }
 
-const insertComponentAst = (rootAst, componentName) => {
-    const exportDefaultAst = rootAst.find(`export default $_$exportDefaultName`);
-    const exportDefaultName = exportDefaultAst['0'].match['exportDefaultName'][0].value;
-
-    const functionDeclarationAst = rootAst.find(`function $_$funcName () {$_$return}`);
-    const varExpressionFnAst = rootAst.find(`const $_$funcName = () => "$_$return"`);
-    let isInVarExpressionFn = true;
-    [functionDeclarationAst, varExpressionFnAst].forEach((fnAst, fnAstIndex) => {
-        fnAst.each(item => {
-            const funcName = item.match['funcName'][0].value;
-            if (exportDefaultName === funcName) {
-                const insertComponentNodeAst = parser.parse(`<${ToUpperCase(componentName)} />`).body[0].expression;
-                const brAst = parser.parse(`<>
-</>`).body[0].expression.children[0];
-                fnAstIndex === 0 ? isInVarExpressionFn = false : isInVarExpressionFn = true;
-                const returnBody = item[0].match['return'][0].node.body;
-                const length = returnBody.length;
-                // TODO 后面要根据类型去判断
-                const returnChildrenAst = returnBody[length - 1]['argument'].children;
-                // 向每一个节点前添加
-                // for (let i = 0; i < returnChildrenAst.length; i++ ) {
-                //     if (returnChildrenAst[i].type === "JSXElement") {
-                //         returnChildrenAst.splice(i + 1, 0, brAst, insertComponentNodeAst);
-                //         i += 2;
-                //     }
-                // }
-                // 添加到第一个节点
-                returnChildrenAst.unshift(brAst, insertComponentNodeAst);
-            }
-        })
-    })
-
-    if (isInVarExpressionFn) return varExpressionFnAst.root();
-    return functionDeclarationAst.root()
-}
-
 const insertInFile = fileName => {
-    let newContent = '';
-    let rootAst = $.loadFile('./index.jsx', {});
-
-    if (haveUiFlag(rootAst)) {
-        // 将 <UIFlag /> 替换为引入组件
-        rootAst = rootAst.replace(`<UIFlag />`, `<${ToUpperCase(fileName)} />`).root();
-    } else {
-        // 将组件插入默认位置
-        rootAst = insertComponentAst(rootAst, fileName);
-    }
-    if (haveImport(rootAst, fileName)) {
-        newContent = rootAst.generate();
-    } else {
-        const importAst = rootAst.find(`import '$_$source'`);
-        importAst.each((importNode, index) => {
-            if (importAst.length - 1  === index) {
-                newContent = importNode.after(`import ${ToUpperCase(fileName)} from './${fileName}'; \n`).root().generate();
-            }
-        })
-    }
-    writeFileSync('./index.jsx', newContent, 'utf-8');
+    const code = transform(fileName, path.join(process.cwd(), './index.jsx'));
+    writeFileSync(path.join(process.cwd(), './index.jsx'), code, 'utf-8');
     ora({text: `代码片段插入成功`, color: 'yellow', isEnabled: true}).succeed();
 }
-
 
 const generateBlock = async () => {
     const tmpPath = 'tmp';
@@ -209,7 +109,7 @@ const generateBlock = async () => {
     await mkdir('-p', [tmpPath]);
     const gitSourceName = config.gitUrl.split('/').reverse()[0].split('.')[0];
     await cd(tmpPath);
-    exec(`git clone ${config.gitUrl}`, async (code, stdout, stderr) => {
+    exec(`git clone ${config.gitUrl} --depth=1`, async (code, stdout, stderr) => {
         if (code === 0) {
             if (!existsSync(`${gitSourceName}/${config.rootFolder}/${blockName}`)) {
                 ora({text: chalk.red(`${blockName} 片段不存在, 请检查片段名是否有误`), color: 'red', isEnabled: true}).fail();
