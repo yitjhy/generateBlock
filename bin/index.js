@@ -8,9 +8,7 @@ const ora = require('ora');
 const glob = require('glob');
 const path = require('path');
 const config = require('./constant');
-const transform = require('./utils/transform/index');
-const getDependenciesFromFile = require('./utils/getDependencies/index');
-
+const { transform, getDependenciesFromFile, getPackageManager } = require('./utils/index');
 
 const argv = process.argv;
 const blockName = argv[2];
@@ -54,8 +52,10 @@ const getDependenciesFromPackageJson = fileName => {
 }
 
 const goInstallDependencies = (dependenciesList, callback) => {
+    const packageManager = getPackageManager();
+    const execStr = packageManager === 'yarn' ? 'add' : 'i';
     let spinner = ora({text: `代码片段相关依赖正在下载中...`, color: 'red', isEnabled: true}).start();
-    exec(`npm install ${dependenciesList.join('  ')}  --save --force`, async (code, stdout, stderr) => {
+    exec(`${packageManager} ${execStr} ${dependenciesList.join('  ')}  --force`, async (code, stdout, stderr) => {
         if (code === 0) {
             spinner.succeed('代码片段相关依赖下载完成');
             callback && callback();
