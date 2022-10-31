@@ -1,8 +1,6 @@
 const { declare } = require('@babel/helper-plugin-utils');
 // const importModule = require('@babel/helper-module-imports');
 
-const dependentcies = [];
-
 const ToUpperCase = str => {
     let res;
     if (str.indexOf('-') !== -1) {
@@ -24,9 +22,6 @@ const generatePlugin = declare((api, options, dirname) => {
                 enter (path, state) {
                     path.traverse({
                         ImportDeclaration (curPath) {
-                            const requirePath = curPath.get('source').node.value;
-                            dependentcies.push(requirePath);
-
                             if (requirePath === `./${options.insertFileName}`) {
                                 const specifierPath = curPath.get('specifiers.0');
                                 if (specifierPath.isImportSpecifier() || specifierPath.isImportDefaultSpecifier()) {
