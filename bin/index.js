@@ -2,7 +2,6 @@
 const { cat, rm, mkdir, exec, cd, cp, mv } = require("shelljs");
 const inquirer = require('inquirer');
 const chalk = require('chalk');
-const $ = require("gogocode");
 const { writeFileSync, existsSync } = require("fs");
 const ora = require('ora');
 const glob = require('glob');
