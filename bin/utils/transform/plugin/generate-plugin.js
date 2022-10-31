@@ -22,6 +22,7 @@ const generatePlugin = declare((api, options, dirname) => {
                 enter (path, state) {
                     path.traverse({
                         ImportDeclaration (curPath) {
+                            const requirePath = curPath.get('source').node.value;
                             if (requirePath === `./${options.insertFileName}`) {
                                 const specifierPath = curPath.get('specifiers.0');
                                 if (specifierPath.isImportSpecifier() || specifierPath.isImportDefaultSpecifier()) {

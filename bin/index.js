@@ -38,7 +38,11 @@ const promptIsJustGetCode = async () => {
 
 const getDependenciesFromPackageJson = fileName => {
     if (!existsSync(`${fileName}/package.json`)) {
-        ora({text: chalk.yellow(`代码块中${fileName}/package.json 不存在, 无法自动解析代码块依赖, 可能需要手动下载代码块依赖`), color: 'yellow', isEnabled: true}).warn();
+        ora({
+            text: chalk.yellow(`代码块中${fileName}/package.json 不存在, 无法自动解析代码块依赖, 可能需要手动下载代码块依赖`), 
+            color: 'yellow', 
+            isEnabled: true
+        }).warn();
         return []
     }
     const packageJsonStr = cat(`${fileName}/package.json`).stdout;
