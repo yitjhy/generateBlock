@@ -19,6 +19,3 @@ sudo npm i generateblock -g
 ```
 generateblock hightlightCode
 ```
-
-### tips
-目前只支持函数组件
