@@ -42,7 +42,17 @@ const generatePlugin = declare((api, options, dirname) => {
                     });
 
                     if (!state.componentName) {
-                        const componentName = ToUpperCase(options.insertFileName);
+                        // 生成唯一的组件名 start
+                        const baseComponentName = ToUpperCase(options.insertFileName);
+                        let componentName = baseComponentName;
+                        let index = 1;
+                        const { bindings } = path.scope;
+                        while (Object.keys(bindings).includes(componentName)) {
+                            index++;
+                            componentName = `${baseComponentName}${index}`;
+                        }
+                        // 生成唯一的组件名 end
+                        
                         const importAst = api.template.ast(`import ${componentName} from "./${options.insertFileName}"`);
                         path.node.body.unshift(importAst);
                         state.componentName  = componentName
