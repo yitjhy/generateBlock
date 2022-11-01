@@ -2,16 +2,19 @@
 const { rm, mkdir, exec, cd, cp, mv } = require("shelljs");
 const inquirer = require('inquirer');
 const chalk = require('chalk');
-const { writeFileSync, existsSync } = require("fs");
+const { writeFileSync, existsSync, cpSync } = require("fs");
 const ora = require('ora');
 const glob = require('glob');
 const path = require('path');
+const child_process = require('child_process');
 const config = require('./constant');
 const { transform, getDependenciesFromFile, getPackageManager, getProjectDependencies } = require('./utils/index');
 
 const projectDependencies = getProjectDependencies();
 const argv = process.argv;
 const blockName = argv[2];
+const gitSourceName = config.gitUrl.split('/').reverse()[0].split('.')[0];
+const tmpPath = 'tmp';
 
 const verifyIsRemoveBlockName = async blockName => {
     const { isOverWriteBlock } = await inquirer.prompt([
@@ -37,32 +40,20 @@ const promptIsJustGetCode = async () => {
     return isJustGetCode
 }
 
-const goInstallDependencies = (dependenciesList, callback) => {
+const goInstallDependencies = dependenciesList => {
     if (dependenciesList.length) {
         const packageManager = getPackageManager();
         const execStr = packageManager === 'yarn' ? 'add' : 'i';
         let spinner = ora({text: `代码片段相关依赖正在下载中...`, color: 'red', isEnabled: true}).start();
-        exec(`${packageManager} ${execStr} ${dependenciesList.join('  ')}  --force`, async (code, stdout, stderr) => {
-            if (code === 0) {
-                spinner.succeed('代码片段相关依赖下载完成');
-                callback && callback();
-            } else {
-                spinner.stop();
-                console.log('Exit code:', code);
-                console.log('Program output:', stdout);
-                console.log('Program stderr:', stderr);
-                process.exit(1)
-            }
-        });
-    } else {
-        callback && callback();
+        child_process.execSync(`${packageManager} ${execStr} ${dependenciesList.join('  ')}  --force`);
+        spinner.succeed('代码片段相关依赖下载完成');
     }
 }
 
-const getInstallDependenciesList = (fileName, dependenciesFromPackageJson) => {
+const getInstallDependenciesList = (globPath, dependenciesFromPackageJson) => {
     const dependenciesFromFile = [];
     return new Promise((resolve) => {
-        glob(`./${fileName}/**/*.js*`,  (err, files) => {
+        glob(globPath,  (err, files) => {
             files.forEach(file => {
                 dependenciesFromFile.push(...getDependenciesFromFile(path.join(process.cwd(), file)))
             })
@@ -84,60 +75,66 @@ const insertInFile = fileName => {
     ora({text: `代码片段插入成功`, color: 'yellow', isEnabled: true}).succeed();
 }
 
-const generateBlock = async () => {
-    const tmpPath = 'tmp';
-    // 环境准备start
-    let isJustGetCode = false;
+const fetchBlockCode = () => {
+    let spinner = ora({text: `代码片段正在生成中...`, color: 'red', isEnabled: true}).start();
+    child_process.execSync(`git clone ${config.gitUrl} --depth=1`);
+    if (!existsSync(`${gitSourceName}/${config.rootFolder}/${blockName}`)) {
+        ora({text: chalk.red(`${blockName} 片段不存在, 请检查片段名是否有误`), color: 'red', isEnabled: true}).fail();
+        cd(`../`);
+        rm('-rf', `${tmpPath}`);
+        process.exit(1)
+    }
+    spinner.succeed('代码片段生成成功');
+}
+
+const getInstallDependencies = async () => {
+    const packageJsonPath = path.join(process.cwd(), `./${gitSourceName}/package.json`)
+    const packageJson = require(packageJsonPath);
+    const sourcePackageJson = {...packageJson.dependencies, ...packageJson.devDependencies};
+
+    const globPath = `./${gitSourceName}/${config.rootFolder}/${blockName}/**/*.js*`
+    const installDependencies = await getInstallDependenciesList(globPath, sourcePackageJson);
+    return installDependencies
+}
+
+const envCheck = async () => {
     if (!existsSync('./index.jsx')) {
-        isJustGetCode = await promptIsJustGetCode();
-        if (!isJustGetCode) return false
+        const isJustGetCode = await promptIsJustGetCode();
+        if (!isJustGetCode) process.exit(1)
     }
-    if (existsSync(tmpPath)) {
-        await rm('-rf', tmpPath);
-    }
+    if (existsSync(tmpPath)) rm('-rf', tmpPath);
     if (existsSync(blockName)) {
         const isOverWriteBlock = await verifyIsRemoveBlockName(blockName);
-        if (!isOverWriteBlock) return false
-    }
-    await rm('-rf', blockName);
-    // 环境准备end
-
-    await mkdir('-p', [tmpPath]);
-    const gitSourceName = config.gitUrl.split('/').reverse()[0].split('.')[0];
-    await cd(tmpPath);
-
-    exec(`git clone ${config.gitUrl} --depth=1`, async (code, stdout, stderr) => {
-        if (code === 0) {
-            if (!existsSync(`${gitSourceName}/${config.rootFolder}/${blockName}`)) {
-                ora({text: chalk.red(`${blockName} 片段不存在, 请检查片段名是否有误`), color: 'red', isEnabled: true}).fail();
-                await cd(`../`);
-                await rm('-rf', `${tmpPath}`);
-                return false
-            }
-
-            const packageJsonPath = path.join(process.cwd(), `./${gitSourceName}/package.json`)
-            const packageJson = require(packageJsonPath);
-            const sourcePackageJson = {...packageJson.dependencies, ...packageJson.devDependencies};
-
-
-            ora({text: `代码片段生成成功`, color: 'gray', isEnabled: true}).succeed();
-            await rm('-rf', `../${gitSourceName}`);
-            await cp('-R', [`${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`], `../${blockName}`);
-            await cd(`../`);
-            await rm('-rf', `${tmpPath}`);
-            // await mv(['demo'], blockName);
-            const installDependencies = await getInstallDependenciesList(blockName, sourcePackageJson);
-            const callback = () => {!isJustGetCode && insertInFile(blockName)};
-            goInstallDependencies(Array.from(new Set(installDependencies)), callback)
+        if (isOverWriteBlock) {
+            rm('-rf', blockName);
         } else {
-            await cd(`../`);
-            await rm('-rf', `${tmpPath}`);
-            console.log('Exit code:', code);
-            console.log('Program output:', stdout);
-            console.log('Program stderr:', stderr);
+            console.log('333',333)
             process.exit(1)
         }
-    });
+    }
+}
+
+const generateBlock = async () => {
+    await envCheck();
+
+    mkdir('-p', [tmpPath]);
+    cd(tmpPath);
+
+    try {
+        fetchBlockCode();
+        const installDependencies = await getInstallDependencies();
+        cpSync(`${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, `../${blockName}`, {
+            recursive: true
+        });
+        goInstallDependencies(Array.from(new Set(installDependencies)));
+        cd(`../`);
+        rm('-rf', `${tmpPath}`);
+        insertInFile(blockName);
+    } catch (e) {
+        cd(`../`);
+        rm('-rf', `${tmpPath}`);
+        process.exit(1)
+    }
 }
 
 if (blockName) {
