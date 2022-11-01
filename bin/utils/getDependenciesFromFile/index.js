@@ -12,7 +12,17 @@ const getDependenciesFromFile = filePath => {
     traverse(ast, {
         ImportDeclaration (path) {
             const requirePath = path.get('source').node.value;
-            dependentcies.push(requirePath);
+            if (!requirePath.startsWith('.')) {
+                if (requirePath.startsWith('@')) {
+                    dependentcies.push(requirePath);
+                } else {
+                    if (requirePath.split('/').length > 1) {
+                        dependentcies.push(requirePath.split('/')[0]);
+                    } else {
+                        dependentcies.push(requirePath);
+                    }
+                }
+            }
         },
     });
     return dependentcies

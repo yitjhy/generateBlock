@@ -108,7 +108,6 @@ const envCheck = async () => {
         if (isOverWriteBlock) {
             rm('-rf', blockName);
         } else {
-            console.log('333',333)
             process.exit(1)
         }
     }
