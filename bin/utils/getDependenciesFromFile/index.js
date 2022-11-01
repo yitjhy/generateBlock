@@ -2,7 +2,7 @@ const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 const { cat } = require("shelljs");
 
-const getDependentcies = filePath => {
+const getDependenciesFromFile = filePath => {
     const dependentcies = [];
     const code = cat(filePath).stdout;
     const ast = parser.parse(code, {
@@ -18,4 +18,4 @@ const getDependentcies = filePath => {
     return dependentcies
 }
 
-module.exports = getDependentcies
+module.exports = getDependenciesFromFile

@@ -1,5 +1,5 @@
 #! /usr/bin/env node
-const { cat, rm, mkdir, exec, cd, cp, mv } = require("shelljs");
+const { rm, mkdir, exec, cd, cp, mv } = require("shelljs");
 const inquirer = require('inquirer');
 const chalk = require('chalk');
 const { writeFileSync, existsSync } = require("fs");
@@ -7,8 +7,9 @@ const ora = require('ora');
 const glob = require('glob');
 const path = require('path');
 const config = require('./constant');
-const { transform, getDependenciesFromFile, getPackageManager } = require('./utils/index');
+const { transform, getDependenciesFromFile, getPackageManager, getProjectDependencies } = require('./utils/index');
 
+const projectDependencies = getProjectDependencies();
 const argv = process.argv;
 const blockName = argv[2];
 
@@ -36,40 +37,26 @@ const promptIsJustGetCode = async () => {
     return isJustGetCode
 }
 
-const getDependenciesFromPackageJson = fileName => {
-    if (!existsSync(`${fileName}/package.json`)) {
-        ora({
-            text: chalk.yellow(`代码块中${fileName}/package.json 不存在, 无法自动解析代码块依赖, 可能需要手动下载代码块依赖`), 
-            color: 'yellow', 
-            isEnabled: true
-        }).warn();
-        return []
-    }
-    const packageJsonStr = cat(`${fileName}/package.json`).stdout;
-    const dependenciesSource= ['dependencies', 'peerDependencies', 'devDependencies']
-    const packageJson = JSON.parse(packageJsonStr);
-    return dependenciesSource.reduce((pre, cur) => {
-        if (packageJson[cur]) return [...pre, ...Object.keys(packageJson[cur])];
-        return pre
-    }, [])
-}
-
 const goInstallDependencies = (dependenciesList, callback) => {
-    const packageManager = getPackageManager();
-    const execStr = packageManager === 'yarn' ? 'add' : 'i';
-    let spinner = ora({text: `代码片段相关依赖正在下载中...`, color: 'red', isEnabled: true}).start();
-    exec(`${packageManager} ${execStr} ${dependenciesList.join('  ')}  --force`, async (code, stdout, stderr) => {
-        if (code === 0) {
-            spinner.succeed('代码片段相关依赖下载完成');
-            callback && callback();
-        } else {
-            spinner.stop();
-            console.log('Exit code:', code);
-            console.log('Program output:', stdout);
-            console.log('Program stderr:', stderr);
-            process.exit(1)
-        }
-    });
+    if (dependenciesList.length) {
+        const packageManager = getPackageManager();
+        const execStr = packageManager === 'yarn' ? 'add' : 'i';
+        let spinner = ora({text: `代码片段相关依赖正在下载中...`, color: 'red', isEnabled: true}).start();
+        exec(`${packageManager} ${execStr} ${dependenciesList.join('  ')}  --force`, async (code, stdout, stderr) => {
+            if (code === 0) {
+                spinner.succeed('代码片段相关依赖下载完成');
+                callback && callback();
+            } else {
+                spinner.stop();
+                console.log('Exit code:', code);
+                console.log('Program output:', stdout);
+                console.log('Program stderr:', stderr);
+                process.exit(1)
+            }
+        });
+    } else {
+        callback && callback();
+    }
 }
 
 const getInstallDependenciesList = (fileName, dependenciesFromPackageJson) => {
@@ -79,7 +66,13 @@ const getInstallDependenciesList = (fileName, dependenciesFromPackageJson) => {
             files.forEach(file => {
                 dependenciesFromFile.push(...getDependenciesFromFile(path.join(process.cwd(), file)))
             })
-            const installDependencies = dependenciesFromFile.filter(dependencies => dependenciesFromPackageJson.some(dependencies2 => dependencies2 === dependencies));
+            const installDependencies = Object.keys(dependenciesFromPackageJson).reduce((pre, cur) => {
+                if (dependenciesFromFile.includes(cur) && !Object.keys(projectDependencies).includes(cur)) {
+                    const dependenciesVersion = dependenciesFromPackageJson[cur].replace('^', '');
+                    pre.push(`${cur}@${dependenciesVersion}`);
+                }
+                return pre
+            }, [])
             resolve(installDependencies);
         })
     })
@@ -112,6 +105,7 @@ const generateBlock = async () => {
     await mkdir('-p', [tmpPath]);
     const gitSourceName = config.gitUrl.split('/').reverse()[0].split('.')[0];
     await cd(tmpPath);
+
     exec(`git clone ${config.gitUrl} --depth=1`, async (code, stdout, stderr) => {
         if (code === 0) {
             if (!existsSync(`${gitSourceName}/${config.rootFolder}/${blockName}`)) {
@@ -120,14 +114,19 @@ const generateBlock = async () => {
                 await rm('-rf', `${tmpPath}`);
                 return false
             }
+
+            const packageJsonPath = path.join(process.cwd(), `./${gitSourceName}/package.json`)
+            const packageJson = require(packageJsonPath);
+            const sourcePackageJson = {...packageJson.dependencies, ...packageJson.devDependencies};
+
+
             ora({text: `代码片段生成成功`, color: 'gray', isEnabled: true}).succeed();
-            const dependenciesFromPackageJson = getDependenciesFromPackageJson(`${gitSourceName}/${config.rootFolder}/${blockName}`);
             await rm('-rf', `../${gitSourceName}`);
             await cp('-R', [`${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`], `../${blockName}`);
             await cd(`../`);
             await rm('-rf', `${tmpPath}`);
             // await mv(['demo'], blockName);
-            const installDependencies = await getInstallDependenciesList(blockName, dependenciesFromPackageJson);
+            const installDependencies = await getInstallDependenciesList(blockName, sourcePackageJson);
             const callback = () => {!isJustGetCode && insertInFile(blockName)};
             goInstallDependencies(Array.from(new Set(installDependencies)), callback)
         } else {
