@@ -1,5 +1,4 @@
 #! /usr/bin/env node
-const { cd } = require("shelljs");
 const inquirer = require('inquirer');
 const chalk = require('chalk');
 const { writeFileSync, existsSync, cpSync, mkdirSync, rmSync } = require("fs");
@@ -77,10 +76,9 @@ const insertInFile = fileName => {
 
 const fetchBlockCode = () => {
     let spinner = ora({text: `代码片段正在生成中...`, color: 'red', isEnabled: true}).start();
-    child_process.execSync(`git clone ${config.gitUrl} --depth=1`);
-    if (!existsSync(`${gitSourceName}/${config.rootFolder}/${blockName}`)) {
+    child_process.execSync(`git clone ${config.gitUrl} --depth=1 ${tmpPath}/${gitSourceName}`);
+    if (!existsSync(`${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}`)) {
         ora({text: chalk.red(`${blockName} 片段不存在, 请检查片段名是否有误`), color: 'red', isEnabled: true}).fail();
-        cd(`../`);
         rmSync(tmpPath, {recursive: true});
         process.exit(1)
     }
@@ -88,11 +86,11 @@ const fetchBlockCode = () => {
 }
 
 const getInstallDependencies = async () => {
-    const packageJsonPath = path.join(process.cwd(), `./${gitSourceName}/package.json`)
+    const packageJsonPath = path.join(process.cwd(), `./${tmpPath}/${gitSourceName}/package.json`)
     const packageJson = require(packageJsonPath);
     const sourcePackageJson = {...packageJson.dependencies, ...packageJson.devDependencies};
 
-    const globPath = `./${gitSourceName}/${config.rootFolder}/${blockName}/**/*.js*`
+    const globPath = `./${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}/**/*.js*`
     const installDependencies = await getInstallDependenciesList(globPath, sourcePackageJson);
     return installDependencies
 }
@@ -116,16 +114,14 @@ const envCheck = async () => {
 const generateBlock = async () => {
     await envCheck();
     mkdirSync(tmpPath, {recursive: true});
-    cd(tmpPath);
 
     try {
         fetchBlockCode();
         const installDependencies = await getInstallDependencies();
-        cpSync(`${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, `../${blockName}`, {
+        cpSync(`${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, blockName, {
             recursive: true
         });
         goInstallDependencies(Array.from(new Set(installDependencies)));
-        cd(`../`);
         rmSync(tmpPath, {recursive: true});
         glob(`./${blockName}/**/*.md`, (err, files) => {
             files.forEach(filePath => {
@@ -134,7 +130,6 @@ const generateBlock = async () => {
         })
         insertInFile(blockName);
     } catch (e) {
-        cd(`../`);
         rmSync(tmpPath, {recursive: true});
         process.exit(1)
     }
