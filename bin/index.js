@@ -129,7 +129,6 @@ const generateBlock = async () => {
         cd(`../`);
         rm('-rf', `${tmpPath}`);
         glob(`./${blockName}/**/*.md`, (err, files) => {
-            console.log('files',files)
             files.forEach(filePath => {
                 rm('-rf', filePath);
             })
