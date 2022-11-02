@@ -119,13 +119,13 @@ const generateBlock = async () => {
         cpSync(`${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, blockName, {
             recursive: true
         });
-        goInstallDependencies(Array.from(new Set(installDependencies)));
         rmSync(tmpPath, {recursive: true});
         glob(`./${blockName}/**/*.md`, (err, files) => {
             files.forEach(filePath => {
                 rmSync(filePath, {recursive: true});
             })
         })
+        goInstallDependencies(Array.from(new Set(installDependencies)));
         insertInFile(blockName);
     } catch (e) {
         rmSync(tmpPath, {recursive: true});
