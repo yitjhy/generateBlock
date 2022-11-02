@@ -113,8 +113,6 @@ const envCheck = async () => {
 
 const generateBlock = async () => {
     await envCheck();
-    mkdirSync(tmpPath, {recursive: true});
-
     try {
         fetchBlockCode();
         const installDependencies = await getInstallDependencies();

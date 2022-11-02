@@ -1,10 +1,11 @@
 const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
-const { cat } = require("shelljs");
+const { readFileSync } = require('fs');
+
 
 const getDependenciesFromFile = filePath => {
     const dependentcies = [];
-    const code = cat(filePath).stdout;
+    const code = readFileSync(filePath, 'utf-8')
     const ast = parser.parse(code, {
         sourceType: 'unambiguous',
         plugins: ['jsx']
