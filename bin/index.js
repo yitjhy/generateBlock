@@ -1,8 +1,8 @@
 #! /usr/bin/env node
-const { rm, mkdir, exec, cd, cp, mv } = require("shelljs");
+const { cd } = require("shelljs");
 const inquirer = require('inquirer');
 const chalk = require('chalk');
-const { writeFileSync, existsSync, cpSync } = require("fs");
+const { writeFileSync, existsSync, cpSync, mkdirSync, rmSync } = require("fs");
 const ora = require('ora');
 const glob = require('glob');
 const path = require('path');
@@ -81,7 +81,7 @@ const fetchBlockCode = () => {
     if (!existsSync(`${gitSourceName}/${config.rootFolder}/${blockName}`)) {
         ora({text: chalk.red(`${blockName} 片段不存在, 请检查片段名是否有误`), color: 'red', isEnabled: true}).fail();
         cd(`../`);
-        rm('-rf', `${tmpPath}`);
+        rmSync(tmpPath, {recursive: true});
         process.exit(1)
     }
     spinner.succeed('代码片段生成成功');
@@ -102,11 +102,11 @@ const envCheck = async () => {
         const isJustGetCode = await promptIsJustGetCode();
         if (!isJustGetCode) process.exit(1)
     }
-    if (existsSync(tmpPath)) rm('-rf', tmpPath);
+    if (existsSync(tmpPath)) rmSync(tmpPath, {recursive: true});;
     if (existsSync(blockName)) {
         const isOverWriteBlock = await verifyIsRemoveBlockName(blockName);
         if (isOverWriteBlock) {
-            rm('-rf', blockName);
+            rmSync(blockName, {recursive: true});
         } else {
             process.exit(1)
         }
@@ -115,8 +115,7 @@ const envCheck = async () => {
 
 const generateBlock = async () => {
     await envCheck();
-
-    mkdir('-p', [tmpPath]);
+    mkdirSync(tmpPath, {recursive: true});
     cd(tmpPath);
 
     try {
@@ -127,16 +126,16 @@ const generateBlock = async () => {
         });
         goInstallDependencies(Array.from(new Set(installDependencies)));
         cd(`../`);
-        rm('-rf', `${tmpPath}`);
+        rmSync(tmpPath, {recursive: true});
         glob(`./${blockName}/**/*.md`, (err, files) => {
             files.forEach(filePath => {
-                rm('-rf', filePath);
+                rmSync(filePath, {recursive: true});
             })
         })
         insertInFile(blockName);
     } catch (e) {
         cd(`../`);
-        rm('-rf', `${tmpPath}`);
+        rmSync(tmpPath, {recursive: true});
         process.exit(1)
     }
 }
