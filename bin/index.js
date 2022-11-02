@@ -128,6 +128,12 @@ const generateBlock = async () => {
         goInstallDependencies(Array.from(new Set(installDependencies)));
         cd(`../`);
         rm('-rf', `${tmpPath}`);
+        glob(`./${blockName}/**/*.md`, (err, files) => {
+            console.log('files',files)
+            files.forEach(filePath => {
+                rm('-rf', filePath);
+            })
+        })
         insertInFile(blockName);
     } catch (e) {
         cd(`../`);
