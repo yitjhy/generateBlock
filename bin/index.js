@@ -100,7 +100,7 @@ const envCheck = async () => {
         const isJustGetCode = await promptIsJustGetCode();
         if (!isJustGetCode) process.exit(1)
     }
-    if (existsSync(tmpPath)) rmSync(tmpPath, {recursive: true});;
+    if (existsSync(tmpPath)) rmSync(tmpPath, {recursive: true});
     if (existsSync(blockName)) {
         const isOverWriteBlock = await verifyIsRemoveBlockName(blockName);
         if (isOverWriteBlock) {
@@ -128,7 +128,7 @@ const generateBlock = async () => {
         goInstallDependencies(Array.from(new Set(installDependencies)));
         insertInFile(blockName);
     } catch (e) {
-        rmSync(tmpPath, {recursive: true});
+        if (existsSync(tmpPath)) rmSync(tmpPath, {recursive: true});
         process.exit(1)
     }
 }
