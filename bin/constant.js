@@ -1,7 +1,7 @@
 const config = {
     rootFolder: 'docs',
     demoFolder: 'demo',
-    gitUrl: 'https://github.com/yitjhy/generate-block-static-site.git',
+    gitUrl: 'https://gitee.com/yitjhy/generateblock.git',
 }
 
 module.exports = config
