@@ -12,13 +12,11 @@ const {
   getInstallDependencies,
   getBlockList,
   selectBlock,
+  confirmIsRemoveBlockName,
 } = require('./utils/index')
 
 const generateBlock = async (blockName) => {
-  await envCheck(blockName)
   try {
-    const gitUrl = await getGitUrl()
-    getBlockCode(gitUrl, blockName)
     const installDependencies = getInstallDependencies(blockName)
     goInstallDependencies(installDependencies, blockName)
     syncCode(blockName)
@@ -31,13 +29,38 @@ const generateBlock = async (blockName) => {
 }
 
 if (process.argv[2]) {
-  generateBlock(process.argv[2]).then()
-} else {
-  const fn = async () => {
-    const gitUrl = await getGitUrl()
-    const blockList = getBlockList(gitUrl)
-    const blockName = await selectBlock(blockList)
-    generateBlock(blockName).then()
+  const start = async () => {
+    try {
+      await envCheck(process.argv[2])
+      const gitUrl = await getGitUrl()
+      getBlockCode(gitUrl, process.argv[2])
+      generateBlock(process.argv[2]).then()
+    } catch (e) {
+      if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
+      process.exit(1)
+    }
   }
-  fn().then()
+  start().then()
+} else {
+  const start = async () => {
+    try {
+      await envCheck()
+      const gitUrl = await getGitUrl()
+      const blockList = getBlockList(gitUrl)
+      const blockName = await selectBlock(blockList)
+      if (existsSync(blockName)) {
+        const isOverWriteBlock = await confirmIsRemoveBlockName(blockName)
+        if (isOverWriteBlock) {
+          rmSync(blockName, { recursive: true })
+        } else {
+          process.exit(1)
+        }
+      }
+      generateBlock(blockName).then()
+    } catch (e) {
+      if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
+      process.exit(1)
+    }
+  }
+  start().then()
 }

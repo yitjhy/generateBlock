@@ -144,7 +144,7 @@ const envCheck = async (blockName) => {
     if (!isJustGetCode) process.exit(1)
   }
   if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
-  if (existsSync(blockName)) {
+  if (blockName && existsSync(blockName)) {
     const isOverWriteBlock = await confirmIsRemoveBlockName(blockName)
     if (isOverWriteBlock) {
       rmSync(blockName, { recursive: true })
@@ -226,4 +226,5 @@ module.exports = {
   getInstallDependencies,
   getBlockList,
   selectBlock,
+  confirmIsRemoveBlockName,
 }
