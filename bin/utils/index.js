@@ -1,7 +1,7 @@
 const inquirer = require('inquirer')
 const chalk = require('chalk')
 const glob = require('glob')
-const { existsSync, writeFileSync, rmSync, cpSync } = require('fs')
+const { existsSync, writeFileSync, rmSync, cpSync, readdirSync, lstatSync } = require('fs')
 const child_process = require('child_process')
 const transform = require('./transform/index')
 const getDependenciesFromFile = require('./getDependenciesFromFile/index')
@@ -22,6 +22,17 @@ const selectGitRepository = async () => {
     },
   ])
   return gitUrlBySelect
+}
+const selectBlock = async (choices) => {
+  const { block } = await inquirer.prompt([
+    {
+      name: 'block',
+      type: 'list',
+      message: '选择代码片段：',
+      choices: choices,
+    },
+  ])
+  return block
 }
 const inputGitRepository = async () => {
   const { gitUrlByInput } = await inquirer.prompt([
@@ -80,18 +91,16 @@ const goInstallDependencies = (dependenciesList) => {
     spinner.succeed(`代码片段相关依赖 ${chalk.yellow(dependenciesList.join(' '))} 下载完成`)
   }
 }
-const insertInFile = (fileName) => {
-  const blockName = process.argv[2]
+const insertInFile = (blockName) => {
   const indexJsxPath = path.join(process.cwd(), './index.jsx')
   const indexTsxPath = path.join(process.cwd(), './index.tsx')
   let transformPath = indexJsxPath
   if (existsSync(indexTsxPath)) transformPath = indexTsxPath
-  const code = transform(fileName, transformPath)
+  const code = transform(blockName, transformPath)
   writeFileSync(transformPath, code, 'utf-8')
   ora({ text: `代码片段 ${chalk.yellow(blockName)} 插入成功`, color: 'yellow', isEnabled: true }).succeed()
 }
-const getBlockCode = (gitUrl) => {
-  const blockName = process.argv[2]
+const getBlockCode = (gitUrl, blockName) => {
   let spinner = ora({
     text: `代码片段 ${chalk.yellow(blockName)} 正在获取中...`,
     color: 'red',
@@ -106,8 +115,28 @@ const getBlockCode = (gitUrl) => {
   }
   spinner.succeed(`代码片段 ${chalk.yellow(blockName)} 获取成功`)
 }
-const envCheck = async () => {
-  const blockName = process.argv[2]
+const getBlockList = (gitUrl) => {
+  let spinner = ora({ text: `片段列表获取中...`, color: 'red', isEnabled: true }).start()
+  try {
+    if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
+    child_process.execSync(`git clone ${gitUrl} --depth=1 ${tmpPathName}`)
+    let blockList = []
+    const files = readdirSync(path.join(process.cwd(), `./${tmpPathName}/${config.rootFolder}`))
+    files.map(function (item) {
+      let stat = lstatSync(path.join(process.cwd(), `./${tmpPathName}/${config.rootFolder}/`) + item)
+      if (stat.isDirectory() === true) {
+        blockList.push(item)
+      }
+    })
+    spinner.succeed(`代码片段获取完成`)
+    return blockList
+  } catch (e) {
+    spinner.fail(`代码片段获取失败`)
+    if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
+    process.exit(1)
+  }
+}
+const envCheck = async (blockName) => {
   const indexJsxPath = path.join(process.cwd(), './index.jsx')
   const indexTsxPath = path.join(process.cwd(), './index.tsx')
   if (!existsSync(indexJsxPath) && !existsSync(indexTsxPath)) {
@@ -124,16 +153,14 @@ const envCheck = async () => {
     }
   }
 }
-const clearEnv = () => {
-  const blockName = process.argv[2]
+const clearEnv = (blockName) => {
   if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
   path.join(process.cwd(), `./${blockName}/**/*.md`)
   glob.sync(path.join(process.cwd(), `./${blockName}/**/*.md`)).map((filePath) => {
     rmSync(filePath, { recursive: true })
   })
 }
-const syncCode = () => {
-  const blockName = process.argv[2]
+const syncCode = (blockName) => {
   const sourcePath = path.join(process.cwd(), `${tmpPathName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`)
   const targetPath = path.join(process.cwd(), `./${blockName}`)
   cpSync(sourcePath, targetPath, {
@@ -175,8 +202,7 @@ const getInstallDependenciesList = (globPath, dependenciesFromSourcePackageJson)
     return pre
   }, [])
 }
-const getInstallDependencies = () => {
-  const blockName = process.argv[2]
+const getInstallDependencies = (blockName) => {
   const sourcePackageJsonPath = path.join(process.cwd(), `./${tmpPathName}/package.json`)
   const sourcePackageJson = require(sourcePackageJsonPath)
   const dependenciesFromPackageJson = { ...sourcePackageJson.dependencies, ...sourcePackageJson.devDependencies }
@@ -198,4 +224,6 @@ module.exports = {
   syncCode,
   getInstallDependenciesList,
   getInstallDependencies,
+  getBlockList,
+  selectBlock,
 }

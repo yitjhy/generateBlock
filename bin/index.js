@@ -1,7 +1,5 @@
 #! /usr/bin/env node
-const chalk = require('chalk')
 const { existsSync, rmSync } = require('fs')
-const ora = require('ora')
 const { tmpPath } = require('./constant')
 const {
   getGitUrl,
@@ -12,18 +10,20 @@ const {
   clearEnv,
   syncCode,
   getInstallDependencies,
+  getBlockList,
+  selectBlock,
 } = require('./utils/index')
 
-const generateBlock = async () => {
-  await envCheck()
+const generateBlock = async (blockName) => {
+  await envCheck(blockName)
   try {
     const gitUrl = await getGitUrl()
-    getBlockCode(gitUrl)
-    const installDependencies = getInstallDependencies()
-    goInstallDependencies(installDependencies)
-    syncCode()
-    clearEnv()
-    insertInFile(process.argv[2])
+    getBlockCode(gitUrl, blockName)
+    const installDependencies = getInstallDependencies(blockName)
+    goInstallDependencies(installDependencies, blockName)
+    syncCode(blockName)
+    clearEnv(blockName)
+    insertInFile(blockName)
   } catch (e) {
     if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
     process.exit(1)
@@ -31,8 +31,13 @@ const generateBlock = async () => {
 }
 
 if (process.argv[2]) {
-  generateBlock().then()
+  generateBlock(process.argv[2]).then()
 } else {
-  ora({ text: chalk.red('请输入代码片段名称'), color: 'red', isEnabled: true }).fail()
-  process.exit(1)
+  const fn = async () => {
+    const gitUrl = await getGitUrl()
+    const blockList = getBlockList(gitUrl)
+    const blockName = await selectBlock(blockList)
+    generateBlock(blockName).then()
+  }
+  fn().then()
 }
