@@ -9,21 +9,34 @@ const child_process = require('child_process')
 const config = require('./constant')
 const { transform, getDependenciesFromFile, getPackageManager, getProjectDependencies } = require('./utils/index')
 
-const gitUrlObj = {
-  github: 'https://github.com/yitjhy/generate-block-static-site.git',
-  gitee: 'https://gitee.com/yitjhy/block.git',
-}
+const tmpPath = 'tmp'
 const projectDependencies = getProjectDependencies()
 const argv = process.argv
 const blockName = argv[2]
-let gitUrl = argv[3]
-let gitSourceName = gitUrl
-const tmpPath = 'tmp'
-if (gitUrl && Object.keys(gitUrlObj).includes(gitUrl)) gitUrl = gitUrlObj[gitUrl]
-if (!gitUrl) gitUrl = gitUrlObj['github']
-gitSourceName = gitUrl.split('/').reverse()[0].split('.')[0]
 
-const verifyIsRemoveBlockName = async (blockName) => {
+const selectGitRepository = async () => {
+  const { gitUrlBySelect } = await inquirer.prompt([
+    {
+      name: 'gitUrlBySelect',
+      type: 'list',
+      message: '选择仓库来源：',
+      choices: ['github', 'gitee', '自定义'],
+      default: 'gitee',
+    },
+  ])
+  return gitUrlBySelect
+}
+const inputGitRepository = async () => {
+  const { gitUrlByInput } = await inquirer.prompt([
+    {
+      name: 'gitUrlByInput',
+      type: 'input',
+      message: '输入仓库地址：',
+    },
+  ])
+  return gitUrlByInput
+}
+const confirmIsRemoveBlockName = async (blockName) => {
   const { isOverWriteBlock } = await inquirer.prompt([
     {
       type: 'confirm',
@@ -34,8 +47,7 @@ const verifyIsRemoveBlockName = async (blockName) => {
   ])
   return isOverWriteBlock
 }
-
-const promptIsJustGetCode = async () => {
+const confirmIsJustGetCode = async () => {
   const { isJustGetCode } = await inquirer.prompt([
     {
       type: 'confirm',
@@ -105,26 +117,30 @@ const insertInFile = (fileName) => {
   if (existsSync(indexTsxPath)) transformPath = indexTsxPath
   const code = transform(fileName, transformPath)
   writeFileSync(transformPath, code, 'utf-8')
-  ora({ text: `代码片段插入成功`, color: 'yellow', isEnabled: true }).succeed()
+  ora({ text: `代码片段 ${chalk.yellow(blockName)} 插入成功`, color: 'yellow', isEnabled: true }).succeed()
 }
 
-const fetchBlockCode = () => {
-  let spinner = ora({ text: `代码片段正在生成中...`, color: 'red', isEnabled: true }).start()
-  child_process.execSync(`git clone ${gitUrl} --depth=1 ${tmpPath}/${gitSourceName}`)
-  if (!existsSync(`${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}`)) {
+const fetchBlockCode = (gitUrl) => {
+  let spinner = ora({
+    text: `代码片段 ${chalk.yellow(blockName)} 正在生成中...`,
+    color: 'red',
+    isEnabled: true,
+  }).start()
+  child_process.execSync(`git clone ${gitUrl} --depth=1 ${tmpPath}`)
+  if (!existsSync(`${tmpPath}/${config.rootFolder}/${blockName}`)) {
     ora({ text: chalk.red(`${blockName} 片段不存在, 请检查片段名是否有误`), color: 'red', isEnabled: true }).fail()
     rmSync(tmpPath, { recursive: true })
     process.exit(1)
   }
-  spinner.succeed('代码片段生成成功')
+  spinner.succeed(`代码片段 ${chalk.yellow(blockName)} 生成成功`)
 }
 
 const getInstallDependencies = () => {
-  const packageJsonPath = path.join(process.cwd(), `./${tmpPath}/${gitSourceName}/package.json`)
+  const packageJsonPath = path.join(process.cwd(), `./${tmpPath}/package.json`)
   const packageJson = require(packageJsonPath)
   const sourcePackageJson = { ...packageJson.dependencies, ...packageJson.devDependencies }
-  const globTsTsxPath = `./${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}/**/*.ts*`
-  const globJsJsxPath = `./${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}/**/*.js*`
+  const globTsTsxPath = `./${tmpPath}/${config.rootFolder}/${blockName}/**/*.ts*`
+  const globJsJsxPath = `./${tmpPath}/${config.rootFolder}/${blockName}/**/*.js*`
   const tsDependenciesList = getInstallDependenciesList(globTsTsxPath, sourcePackageJson)
   const jsDependenciesList = getInstallDependenciesList(globJsJsxPath, sourcePackageJson)
   return Array.from(new Set([...tsDependenciesList, ...jsDependenciesList]))
@@ -134,12 +150,12 @@ const envCheck = async () => {
   const indexJsxPath = path.join(process.cwd(), './index.jsx')
   const indexTsxPath = path.join(process.cwd(), './index.tsx')
   if (!existsSync(indexJsxPath) && !existsSync(indexTsxPath)) {
-    const isJustGetCode = await promptIsJustGetCode()
+    const isJustGetCode = await confirmIsJustGetCode()
     if (!isJustGetCode) process.exit(1)
   }
   if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
   if (existsSync(blockName)) {
-    const isOverWriteBlock = await verifyIsRemoveBlockName(blockName)
+    const isOverWriteBlock = await confirmIsRemoveBlockName(blockName)
     if (isOverWriteBlock) {
       rmSync(blockName, { recursive: true })
     } else {
@@ -148,12 +164,24 @@ const envCheck = async () => {
   }
 }
 
+const getGitUrl = async () => {
+  const gitRepositoryObj = {
+    github: 'https://github.com/yitjhy/generate-block-static-site.git',
+    gitee: 'https://gitee.com/yitjhy/block.git',
+  }
+  const gitUrlBySelect = await selectGitRepository()
+  let gitUrl = gitRepositoryObj[gitUrlBySelect]
+  if (gitUrl === '自定义') gitUrl = await inputGitRepository()
+  return gitUrl
+}
+
 const generateBlock = async () => {
   await envCheck()
   try {
-    fetchBlockCode()
+    const gitUrl = await getGitUrl()
+    fetchBlockCode(gitUrl)
     const installDependencies = getInstallDependencies()
-    cpSync(`${tmpPath}/${gitSourceName}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, blockName, {
+    cpSync(`${tmpPath}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, blockName, {
       recursive: true,
     })
     rmSync(tmpPath, { recursive: true })
