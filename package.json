@@ -1,6 +1,6 @@
 {
   "name": "generateblock",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "generateblock",
   "private": false,
   "keywords": [
@@ -10,7 +10,8 @@
     "generateBlock": "bin/index.js"
   },
   "scripts": {
-    "start": "node bin/index.js"
+    "start": "node bin/index.js",
+    "prettier": "prettier --write ./**/**/*.{js,json} ./**/*.{js,json} ./**/**/**/*.{js,json}"
   },
   "repository": {
     "type": "git",
@@ -29,5 +30,8 @@
     "inquirer": "8.2.2",
     "ora": "5.1.0",
     "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.2"
   }
 }
