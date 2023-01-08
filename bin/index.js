@@ -10,9 +10,7 @@ const config = require('./constant')
 const { transform, getDependenciesFromFile, getPackageManager, getProjectDependencies } = require('./utils/index')
 
 const tmpPath = 'tmp'
-const projectDependencies = getProjectDependencies()
-const argv = process.argv
-const blockName = argv[2]
+const blockName = process.argv[2]
 
 const selectGitRepository = async () => {
   const { gitUrlBySelect } = await inquirer.prompt([
@@ -75,34 +73,35 @@ const goInstallDependencies = (dependenciesList) => {
   }
 }
 
-const getInstallDependenciesList = (globPath, dependenciesFromPackageJson) => {
-  const dependenciesFromFile = []
-  glob.sync(globPath).map((file) => {
-    dependenciesFromFile.push(...getDependenciesFromFile(path.join(process.cwd(), file)))
-  })
-  return Object.keys(dependenciesFromPackageJson).reduce((pre, cur) => {
-    // if (dependenciesFromFile.includes(cur) && !Object.keys(projectDependencies).includes(cur)) {
-    //   const dependenciesVersion = dependenciesFromPackageJson[cur].replace('^', '')
+const getInstallDependenciesList = (globPath, dependenciesFromSourcePackageJson) => {
+  const dependenciesFromProjectPackageJson = getProjectDependencies()
+  const dependenciesFromDemoFile = glob.sync(globPath).reduce((pre, file) => {
+    pre.push(...getDependenciesFromFile(path.join(process.cwd(), file)))
+    return pre
+  }, [])
+  return Object.keys(dependenciesFromSourcePackageJson).reduce((pre, cur) => {
+    // if (dependenciesFromFile.includes(cur) && !Object.keys(dependenciesFromProjectPackageJson).includes(cur)) {
+    //   const dependenciesVersion = dependenciesFromSourcePackageJson[cur].replace('^', '')
     //   pre.push(`${cur}@${dependenciesVersion}`)
     // }
     if (cur.includes('@types')) {
       if (
-        dependenciesFromFile.includes(cur.split('/').slice(1).join('/')) &&
-        !Object.keys(projectDependencies).includes(cur.split('/').slice(1).join('/'))
+        dependenciesFromDemoFile.includes(cur.split('/').slice(1).join('/')) &&
+        !Object.keys(dependenciesFromProjectPackageJson).includes(cur.split('/').slice(1).join('/'))
       ) {
-        const dependenciesVersion = dependenciesFromPackageJson[cur].replace('^', '')
+        const dependenciesVersion = dependenciesFromSourcePackageJson[cur].replace('^', '')
         pre.push(`${cur}@${dependenciesVersion}`)
       }
     }
-    dependenciesFromFile.map((item) => {
+    dependenciesFromDemoFile.map((item) => {
       const dependenciesFromFilePrefix = item.split('/')[0]
       const projectDependenciesPrefix = cur.split('/')[0]
       if (
         projectDependenciesPrefix === dependenciesFromFilePrefix &&
         projectDependenciesPrefix !== '@types' &&
-        !Object.keys(projectDependencies).includes(cur)
+        !Object.keys(dependenciesFromProjectPackageJson).includes(cur)
       ) {
-        const dependenciesVersion = dependenciesFromPackageJson[cur].replace('^', '')
+        const dependenciesVersion = dependenciesFromSourcePackageJson[cur].replace('^', '')
         pre.push(`${cur}@${dependenciesVersion}`)
       }
     })
@@ -136,13 +135,13 @@ const fetchBlockCode = (gitUrl) => {
 }
 
 const getInstallDependencies = () => {
-  const packageJsonPath = path.join(process.cwd(), `./${tmpPath}/package.json`)
-  const packageJson = require(packageJsonPath)
-  const sourcePackageJson = { ...packageJson.dependencies, ...packageJson.devDependencies }
+  const sourcePackageJsonPath = path.join(process.cwd(), `./${tmpPath}/package.json`)
+  const sourcePackageJson = require(sourcePackageJsonPath)
+  const dependenciesFromPackageJson = { ...sourcePackageJson.dependencies, ...sourcePackageJson.devDependencies }
   const globTsTsxPath = `./${tmpPath}/${config.rootFolder}/${blockName}/**/*.ts*`
   const globJsJsxPath = `./${tmpPath}/${config.rootFolder}/${blockName}/**/*.js*`
-  const tsDependenciesList = getInstallDependenciesList(globTsTsxPath, sourcePackageJson)
-  const jsDependenciesList = getInstallDependenciesList(globJsJsxPath, sourcePackageJson)
+  const tsDependenciesList = getInstallDependenciesList(globTsTsxPath, dependenciesFromPackageJson)
+  const jsDependenciesList = getInstallDependenciesList(globJsJsxPath, dependenciesFromPackageJson)
   return Array.from(new Set([...tsDependenciesList, ...jsDependenciesList]))
 }
 
@@ -175,20 +174,28 @@ const getGitUrl = async () => {
   return gitUrl
 }
 
+const clearEnv = () => {
+  rmSync(tmpPath, { recursive: true })
+  glob.sync(`./${blockName}/**/*.md`).map((filePath) => {
+    rmSync(filePath, { recursive: true })
+  })
+}
+
+const syncCode = () => {
+  cpSync(`${tmpPath}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, blockName, {
+    recursive: true,
+  })
+}
+
 const generateBlock = async () => {
   await envCheck()
   try {
     const gitUrl = await getGitUrl()
     fetchBlockCode(gitUrl)
     const installDependencies = getInstallDependencies()
-    cpSync(`${tmpPath}/${config.rootFolder}/${blockName}/${config.demoFolder}/`, blockName, {
-      recursive: true,
-    })
-    rmSync(tmpPath, { recursive: true })
-    glob.sync(`./${blockName}/**/*.md`).map((filePath) => {
-      rmSync(filePath, { recursive: true })
-    })
     goInstallDependencies(installDependencies)
+    syncCode()
+    clearEnv()
     insertInFile(blockName)
   } catch (e) {
     if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
