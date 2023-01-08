@@ -116,7 +116,7 @@ const getBlockCode = (gitUrl, blockName) => {
   spinner.succeed(`代码片段 ${chalk.yellow(blockName)} 获取成功`)
 }
 const getBlockList = (gitUrl) => {
-  let spinner = ora({ text: `片段列表获取中...`, color: 'red', isEnabled: true }).start()
+  let spinner = ora({ text: `代码片段列表获取中...`, color: 'red', isEnabled: true }).start()
   try {
     if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
     child_process.execSync(`git clone ${gitUrl} --depth=1 ${tmpPathName}`)
@@ -128,10 +128,10 @@ const getBlockList = (gitUrl) => {
         blockList.push(item)
       }
     })
-    spinner.succeed(`代码片段获取完成`)
+    spinner.succeed(`代码片段列表获取完成`)
     return blockList
   } catch (e) {
-    spinner.fail(`代码片段获取失败`)
+    spinner.fail(`代码片段列表获取失败`)
     if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
     process.exit(1)
   }
