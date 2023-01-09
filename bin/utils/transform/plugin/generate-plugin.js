@@ -77,6 +77,13 @@ const generatePlugin = declare((api, options, dirname) => {
                   path.node.children.unshift(brAst, componentAst)
                 }
               },
+              JSXFragment(path) {
+                if (path.parentPath.isReturnStatement()) {
+                  const componentAst = api.template.expression(`<${state.componentName} />`, { plugins: ['jsx'] })()
+                  const brAst = api.types.jSXText('\n        ')
+                  path.node.children.unshift(brAst, componentAst)
+                }
+              },
             })
           }
         },
