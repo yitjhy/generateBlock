@@ -64,11 +64,14 @@ const generatePlugin = declare((api, options, dirname) => {
               if (elementLabel === state.componentName) {
                 state.hadInsertComponent = true
               }
+              if (elementLabel === 'UIFlag') {
+                state.hadUIFlag = true
+              }
             },
           })
 
-          // 如果没被使用则在首行插入
-          if (!state.hadInsertComponent) {
+          // 如果没被使用并且没有 UIFlag 则在首行插入
+          if (!state.hadInsertComponent && !state.hadUIFlag) {
             path.traverse({
               JSXElement(path) {
                 if (path.parentPath.isReturnStatement()) {
