@@ -17,5 +17,5 @@ sudo npm i generateblock -g
 ```
 ### 使用方式
 ```
-generateblock hightlightCode
+generateblock 或 generateblock hightlightCode
 ```
