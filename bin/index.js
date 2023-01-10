@@ -1,6 +1,6 @@
 #! /usr/bin/env node
 const { existsSync, rmSync } = require('fs')
-const { tmpPath } = require('./constant')
+const { tmpPath, blockGitUrl } = require('./constant')
 const {
   getGitUrl,
   goInstallDependencies,
@@ -32,8 +32,8 @@ if (process.argv[2]) {
   const start = async () => {
     try {
       await envCheck(process.argv[2])
-      const gitUrl = await getGitUrl()
-      getBlockCode(gitUrl, process.argv[2])
+      // const gitUrl = await getGitUrl()
+      getBlockCode(blockGitUrl, process.argv[2])
       generateBlock(process.argv[2]).then()
     } catch (e) {
       if (existsSync(tmpPath)) rmSync(tmpPath, { recursive: true })
@@ -45,8 +45,8 @@ if (process.argv[2]) {
   const start = async () => {
     try {
       await envCheck()
-      const gitUrl = await getGitUrl()
-      const blockList = getBlockList(gitUrl)
+      // const gitUrl = await getGitUrl()
+      const blockList = getBlockList(blockGitUrl)
       const blockName = await selectBlock(blockList)
       if (existsSync(blockName)) {
         const isOverWriteBlock = await confirmIsRemoveBlockName(blockName)

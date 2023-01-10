@@ -68,16 +68,16 @@ const confirmIsJustGetCode = async () => {
   ])
   return isJustGetCode
 }
-const getGitUrl = async () => {
-  const gitRepositoryObj = {
-    github: 'https://github.com/yitjhy/generate-block-static-site.git',
-    gitee: 'https://gitee.com/yitjhy/block.git',
-  }
-  const gitUrlBySelect = await selectGitRepository()
-  let gitUrl = gitRepositoryObj[gitUrlBySelect]
-  if (gitUrl === '自定义') gitUrl = await inputGitRepository()
-  return gitUrl
-}
+// const getGitUrl = async () => {
+//   const gitRepositoryObj = {
+//     github: 'https://github.com/yitjhy/generate-block-static-site.git',
+//     gitee: 'https://gitee.com/yitjhy/generate-block-static-site.git',
+//   }
+//   const gitUrlBySelect = await selectGitRepository()
+//   let gitUrl = gitRepositoryObj[gitUrlBySelect]
+//   if (gitUrl === '自定义') gitUrl = await inputGitRepository()
+//   return gitUrl
+// }
 const goInstallDependencies = (dependenciesList) => {
   if (dependenciesList.length) {
     const packageManager = getPackageManager()
@@ -215,7 +215,7 @@ const getInstallDependencies = (blockName) => {
 module.exports = {
   getDependenciesFromFile,
   getProjectDependencies,
-  getGitUrl,
+  // getGitUrl,
   goInstallDependencies,
   insertInFile,
   getBlockCode,
